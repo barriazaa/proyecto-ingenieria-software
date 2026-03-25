@@ -1,74 +1,250 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { registerUser } from "../application/AuthService";
 import { loginWithGoogleFirebase } from "../infrastructure/FirebaseAuthRepository";
 
 const RegisterView = () => {
   const navigate = useNavigate();
 
-  const handleRegister = async (rol) => {
-    try {
-      // 🔥 1. Obtener usuario desde Google (DIRECTO)
-      const firebaseUser = await loginWithGoogleFirebase();
+  const [rol, setRol] = useState(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [focus, setFocus] = useState(null);
+  const [serverError, setServerError] = useState("");
 
-      if (!firebaseUser) {
-        alert("Error con Google");
-        return;
-      }
+  const [form, setForm] = useState({
+    carnet: "",
+    nombres: "",
+    apellidos: "",
+    confirmado: false,
+  });
 
-      // 🔥 2. Registrar en Firestore
-      await registerUser(firebaseUser, rol);
+  const [errors, setErrors] = useState({});
 
-      // 🔥 3. Confirmación
-      alert("Registro exitoso. Ahora puedes iniciar sesión.");
+  // Autocompletar Google
+  useEffect(() => {
+    if (user?.displayName) {
+      const partes = user.displayName.split(" ");
+      setForm((prev) => ({
+        ...prev,
+        nombres: partes[0] || "",
+        apellidos: partes.slice(1).join(" ") || "",
+      }));
+    }
+  }, [user]);
 
-      // 🔥 4. Volver al login
-      navigate("/");
-    } catch (error) {
-      console.error("ERROR REGISTRO:", error);
-      alert(error.message || "Error en registro");
+  // Validaciones
+  const validate = (name, value) => {
+    let error = "";
+
+    if (!value) error = "Este campo es obligatorio";
+    if (name === "carnet" && value && !/^\d+$/.test(value)) {
+      error = "Solo números";
+    }
+
+    return error;
+  };
+
+  // Inputs
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    const newValue = type === "checkbox" ? checked : value;
+
+    setForm({ ...form, [name]: newValue });
+
+    if (type !== "checkbox") {
+      setErrors({
+        ...errors,
+        [name]: validate(name, newValue),
+      });
     }
   };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.4 }}
-      style={styles.container}
-    >
-      <div style={styles.card}>
-        
-        {/* PANEL IZQUIERDO */}
-        <div style={styles.leftPanel}>
-          <h1 style={styles.welcome}>¡BIENVENIDO!</h1>
-          <p>Regístrate para comenzar</p>
-        </div>
+  // Login Google
+  const handleRegister = async (rolSeleccionado) => {
+    try {
+      setLoading(true);
+      const firebaseUser = await loginWithGoogleFirebase();
+      if (!firebaseUser) return;
 
-        {/* PANEL DERECHO */}
+      setUser(firebaseUser);
+      setRol(rolSeleccionado);
+    } catch (error) {
+      console.error(error);
+    }
+    setLoading(false);
+  };
+
+  // Submit
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const newErrors = {
+      carnet: validate("carnet", form.carnet),
+      nombres: validate("nombres", form.nombres),
+      apellidos: validate("apellidos", form.apellidos),
+    };
+
+    setErrors(newErrors);
+
+    if (Object.values(newErrors).some((e) => e)) return;
+
+    if (!form.confirmado) {
+      setErrors((prev) => ({
+        ...prev,
+        confirmado: "Debes confirmar los datos",
+      }));
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setServerError("");
+
+      await registerUser(user, rol, form);
+      navigate("/");
+    } catch (error) {
+      console.error(error);
+      setServerError(error.message || "Error al registrar usuario");
+    }
+
+    setLoading(false);
+  };
+
+  return (
+    <motion.div style={styles.container}>
+      <div style={styles.card}>
         <div style={styles.rightPanel}>
           <h2>Registro</h2>
 
-          <button
-            style={styles.button}
-            onClick={() => handleRegister("estudiante")}
-          >
-            Registrarme como Estudiante
-          </button>
+          {!user && (
+            <>
+              <motion.button
+                style={styles.button}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleRegister("estudiante")}>
+                Estudiante
+              </motion.button>
 
-          <button
-            style={styles.button}
-            onClick={() => handleRegister("catedratico")}
-          >
-            Registrarme como Catedrático
-          </button>
+              <motion.button
+                style={styles.button}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleRegister("catedratico")}>
+                Catedrático
+              </motion.button>
+            </>
+          )}
+
+          {user && (
+            <>
+              <div style={styles.avatarContainer}>
+                <img src={user.photoURL} alt="avatar" style={styles.avatar} />
+                <p>{user.email}</p>
+              </div>
+
+              <form onSubmit={handleSubmit} style={styles.form}>
+
+                {/* CARNET */}
+                <div style={{
+                  ...styles.inputGroup,
+                  ...(focus === "carnet" ? styles.focus : {}),
+                  ...(errors.carnet ? styles.errorBorder : {})
+                }}>
+                  <input
+                    name="carnet"
+                    placeholder="Número de carnet"
+                    value={form.carnet}
+                    onChange={handleChange}
+                    onFocus={() => setFocus("carnet")}
+                    onBlur={() => setFocus(null)}
+                    style={styles.input}
+                  />
+                </div>
+                {errors.carnet && <span style={styles.errorText}>{errors.carnet}</span>}
+
+                {/* NOMBRES */}
+                <div style={{
+                  ...styles.inputGroup,
+                  ...(focus === "nombres" ? styles.focus : {}),
+                  ...(errors.nombres ? styles.errorBorder : {})
+                }}>
+                  <input
+                    name="nombres"
+                    placeholder="Nombres"
+                    value={form.nombres}
+                    onChange={handleChange}
+                    onFocus={() => setFocus("nombres")}
+                    onBlur={() => setFocus(null)}
+                    style={styles.input}
+                  />
+                </div>
+                {errors.nombres && <span style={styles.errorText}>{errors.nombres}</span>}
+
+                {/* APELLIDOS */}
+                <div style={{
+                  ...styles.inputGroup,
+                  ...(focus === "apellidos" ? styles.focus : {}),
+                  ...(errors.apellidos ? styles.errorBorder : {})
+                }}>
+                  <input
+                    name="apellidos"
+                    placeholder="Apellidos"
+                    value={form.apellidos}
+                    onChange={handleChange}
+                    onFocus={() => setFocus("apellidos")}
+                    onBlur={() => setFocus(null)}
+                    style={styles.input}
+                  />
+                </div>
+                {errors.apellidos && <span style={styles.errorText}>{errors.apellidos}</span>}
+
+                {/* CHECK */}
+                <div style={styles.checkboxContainer}>
+                  <input
+                    type="checkbox"
+                    name="confirmado"
+                    checked={form.confirmado}
+                    onChange={handleChange}
+                  />
+                  <span style={styles.checkboxText}>
+                    Confirmo que mis datos son correctos
+                  </span>
+                </div>
+
+                {errors.confirmado && (
+                  <span style={styles.errorText}>{errors.confirmado}</span>
+                )}
+
+                <motion.button
+                  style={styles.submitButton}
+                  whileHover={{ scale: 1.03, opacity: 0.95 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  disabled={loading}
+                >
+                  {loading ? "Guardando..." : "Completar Registro"}
+                </motion.button>
+
+                {serverError && (
+                  <div style={styles.serverError}>
+                    {serverError}
+                  </div>
+                )}
+
+              </form>
+            </>
+          )}
 
           <button
             style={styles.link}
             onClick={() => navigate("/")}
+            onMouseEnter={(e) => (e.target.style.opacity = "1")}
+            onMouseLeave={(e) => (e.target.style.opacity = "0.7")}
           >
-            ¿Ya tienes cuenta? Inicia sesión
+            ¿Ya tienes cuenta? <b>Inicia sesión</b>
           </button>
         </div>
       </div>
@@ -76,68 +252,95 @@ const RegisterView = () => {
   );
 };
 
+// 🔥 ESTILOS (FUERA DEL COMPONENTE)
 const styles = {
   container: {
-    height: "100vh",
+    fontFamily: "Poppins, sans-serif",
+    minHeight: "100vh",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    background: "linear-gradient(135deg, #0D47A1, #2196F3)",
+    background: "#0D47A1",
   },
-
   card: {
-    width: "800px",
-    height: "400px",
-    display: "flex",
+    width: "90%",
+    maxWidth: "400px",
+    background: "#000",
     borderRadius: "20px",
-    overflow: "hidden",
-    boxShadow: "0 0 30px rgba(0,0,0,0.5)",
+    padding: "25px",
   },
-
-  leftPanel: {
-    flex: 1,
-    background: "linear-gradient(135deg, #1565C0, #2196F3)",
-    color: "white",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  welcome: {
-    fontSize: "32px",
-    fontWeight: "bold",
-  },
-
-  rightPanel: {
-    flex: 1,
-    background: "rgba(0,0,0,0.85)",
-    color: "white",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    padding: "30px",
-  },
-
+  rightPanel: { color: "white" },
   button: {
-    marginTop: "10px",
+    width: "100%",
     padding: "12px",
-    borderRadius: "10px",
+    marginTop: "10px",
+    background: "linear-gradient(135deg, #FF6F00, #FF9800)",
     border: "none",
-    background: "linear-gradient(135deg, #F57C00, #FF9800)",
+    borderRadius: "10px",
     color: "white",
     cursor: "pointer",
-    fontWeight: "bold",
-    transition: "0.3s",
   },
-
+  form: {
+    marginTop: "20px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  inputGroup: {
+    border: "1px solid #333",
+    borderRadius: "10px",
+    padding: "12px",
+  },
+  checkboxText: {
+    fontSize: "13px",   // 🔥 más pequeño
+    color: "#bbb",      // 🔥 más suave
+  },
+  focus: { border: "1px solid #2196F3" },
+  errorBorder: { border: "1px solid red" },
+  input: {
+    width: "100%",
+    background: "transparent",
+    border: "none",
+    color: "white",
+    outline: "none",
+  },
+  errorText: { color: "red", fontSize: "12px" },
+  checkboxContainer: { display: "flex", gap: "10px" },
+  submitButton: {
+    padding: "14px",
+    background: "linear-gradient(135deg, #FF6F00, #FF9800)",
+    border: "none",
+    borderRadius: "12px",
+    color: "white",
+    fontSize: "16px",
+    fontWeight: "600",
+    letterSpacing: "0.5px",
+    cursor: "pointer",
+    boxShadow: "0 4px 15px rgba(255, 152, 0, 0.3)",
+  },
+  avatarContainer: { textAlign: "center", marginBottom: "15px" },
+  avatar: { width: "60px", height: "60px", borderRadius: "50%" },
+  serverError: {
+    marginTop: "10px",
+    padding: "10px",
+    background: "rgba(255,0,0,0.1)",
+    color: "#ff6b6b",
+    borderRadius: "8px",
+    textAlign: "center",
+  },
   link: {
     marginTop: "20px",
     background: "none",
     border: "none",
-    color: "#2196F3",
+    color: "#90CAF9",
     cursor: "pointer",
-  },
+    fontSize: "14px",
+    fontFamily: "Poppins, sans-serif",
+    display: "block",
+    margin: "20px auto 0",
+    opacity: 0.8,
+    letterSpacing: "0.5px",
+  }
 };
 
 export default RegisterView;

@@ -36,7 +36,6 @@ const LoginView = () => {
     }
   };
 
-  // 🔽 TODO tu styles se queda igual
   const styles = { /* TODO igual que tu código */ };
 
   return (
