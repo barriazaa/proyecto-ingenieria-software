@@ -12,6 +12,7 @@ const RegisterView = () => {
   const [loading, setLoading] = useState(false);
   const [focus, setFocus] = useState(null);
   const [serverError, setServerError] = useState("");
+  const [errors, setErrors] = useState({});
 
   const [form, setForm] = useState({
     carnet: "",
@@ -19,8 +20,6 @@ const RegisterView = () => {
     apellidos: "",
     confirmado: false,
   });
-
-  const [errors, setErrors] = useState({});
 
   // Autocompletar Google
   useEffect(() => {
@@ -36,14 +35,9 @@ const RegisterView = () => {
 
   // Validaciones
   const validate = (name, value) => {
-    let error = "";
-
-    if (!value) error = "Este campo es obligatorio";
-    if (name === "carnet" && value && !/^\d+$/.test(value)) {
-      error = "Solo números";
-    }
-
-    return error;
+    if (!value) return "Este campo es obligatorio";
+    if (name === "carnet" && !/^\d+$/.test(value)) return "Solo números";
+    return "";
   };
 
   // Inputs
@@ -51,13 +45,13 @@ const RegisterView = () => {
     const { name, value, type, checked } = e.target;
     const newValue = type === "checkbox" ? checked : value;
 
-    setForm({ ...form, [name]: newValue });
+    setForm((prev) => ({ ...prev, [name]: newValue }));
 
     if (type !== "checkbox") {
-      setErrors({
-        ...errors,
+      setErrors((prev) => ({
+        ...prev,
         [name]: validate(name, newValue),
-      });
+      }));
     }
   };
 
@@ -72,8 +66,9 @@ const RegisterView = () => {
       setRol(rolSeleccionado);
     } catch (error) {
       console.error(error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Submit
@@ -107,32 +102,37 @@ const RegisterView = () => {
     } catch (error) {
       console.error(error);
       setServerError(error.message || "Error al registrar usuario");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
     <motion.div style={styles.container}>
-      <div style={styles.card}>
+      <motion.div
+        style={styles.card}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        whileHover={{
+          scale: 1.01,
+          boxShadow: `
+        0 10px 40px rgba(203, 91, 0, 0.6),
+        0 0 40px rgba(255, 152, 0, 0.5),
+        0 0 80px rgba(255, 119, 0, 0.9)
+          `,
+        }}
+      >
         <div style={styles.rightPanel}>
           <h2>Registro</h2>
 
           {!user && (
             <>
-              <motion.button
-                style={styles.button}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handleRegister("estudiante")}>
+              <motion.button style={styles.button} onClick={() => handleRegister("estudiante")}>
                 Estudiante
               </motion.button>
 
-              <motion.button
-                style={styles.button}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handleRegister("catedratico")}>
+              <motion.button style={styles.button} onClick={() => handleRegister("catedratico")}>
                 Catedrático
               </motion.button>
             </>
@@ -150,10 +150,11 @@ const RegisterView = () => {
                 {/* CARNET */}
                 <div style={{
                   ...styles.inputGroup,
-                  ...(focus === "carnet" ? styles.focus : {}),
-                  ...(errors.carnet ? styles.errorBorder : {})
+                  ...(focus === "carnet" && styles.focus),
+                  ...(errors.carnet && styles.errorBorder)
                 }}>
                   <input
+                    type="text"
                     name="carnet"
                     placeholder="Número de carnet"
                     value={form.carnet}
@@ -168,10 +169,11 @@ const RegisterView = () => {
                 {/* NOMBRES */}
                 <div style={{
                   ...styles.inputGroup,
-                  ...(focus === "nombres" ? styles.focus : {}),
-                  ...(errors.nombres ? styles.errorBorder : {})
+                  ...(focus === "nombres" && styles.focus),
+                  ...(errors.nombres && styles.errorBorder)
                 }}>
                   <input
+                    type="text"
                     name="nombres"
                     placeholder="Nombres"
                     value={form.nombres}
@@ -186,10 +188,11 @@ const RegisterView = () => {
                 {/* APELLIDOS */}
                 <div style={{
                   ...styles.inputGroup,
-                  ...(focus === "apellidos" ? styles.focus : {}),
-                  ...(errors.apellidos ? styles.errorBorder : {})
+                  ...(focus === "apellidos" && styles.focus),
+                  ...(errors.apellidos && styles.errorBorder)
                 }}>
                   <input
+                    type="text"
                     name="apellidos"
                     placeholder="Apellidos"
                     value={form.apellidos}
@@ -218,41 +221,29 @@ const RegisterView = () => {
                   <span style={styles.errorText}>{errors.confirmado}</span>
                 )}
 
-                <motion.button
-                  style={styles.submitButton}
-                  whileHover={{ scale: 1.03, opacity: 0.95 }}
-                  whileTap={{ scale: 0.96 }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                  disabled={loading}
-                >
+                <button style={styles.submitButton} disabled={loading}>
                   {loading ? "Guardando..." : "Completar Registro"}
-                </motion.button>
+                </button>
 
                 {serverError && (
                   <div style={styles.serverError}>
                     {serverError}
                   </div>
                 )}
-
               </form>
             </>
           )}
 
-          <button
-            style={styles.link}
-            onClick={() => navigate("/")}
-            onMouseEnter={(e) => (e.target.style.opacity = "1")}
-            onMouseLeave={(e) => (e.target.style.opacity = "0.7")}
-          >
+          <button style={styles.link} onClick={() => navigate("/")}>
             ¿Ya tienes cuenta? <b>Inicia sesión</b>
           </button>
         </div>
-      </div>
+      </motion.div>
     </motion.div>
   );
 };
 
-// 🔥 ESTILOS (FUERA DEL COMPONENTE)
+// ESTILOS
 const styles = {
   container: {
     fontFamily: "Poppins, sans-serif",
@@ -264,10 +255,18 @@ const styles = {
   },
   card: {
     width: "90%",
-    maxWidth: "400px",
-    background: "#000",
+    maxWidth: "420px",
+    padding: "30px",
     borderRadius: "20px",
-    padding: "25px",
+    background: "rgba(0, 0, 0, 0.9)",
+    color: "white",
+    boxSizing: "border-box",
+    border: "1px solid #fb8c00",
+    boxShadow: `
+    0 10px 40px rgba(0,0,0,0.6),
+    0 0 20px rgba(255, 123, 0, 0.64),
+    0 0 50px #ff6f00e0
+    `,
   },
   rightPanel: { color: "white" },
   button: {
@@ -280,32 +279,19 @@ const styles = {
     color: "white",
     cursor: "pointer",
   },
-  form: {
-    marginTop: "20px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-  },
+  form: { marginTop: "20px", display: "flex", flexDirection: "column", gap: "12px" },
   inputGroup: {
     border: "1px solid #333",
     borderRadius: "10px",
     padding: "12px",
-  },
-  checkboxText: {
-    fontSize: "13px",   // 🔥 más pequeño
-    color: "#bbb",      // 🔥 más suave
+    boxSizing: "border-box",
   },
   focus: { border: "1px solid #2196F3" },
   errorBorder: { border: "1px solid red" },
-  input: {
-    width: "100%",
-    background: "transparent",
-    border: "none",
-    color: "white",
-    outline: "none",
-  },
+  input: { width: "100%", background: "transparent", border: "none", color: "white", outline: "none" },
   errorText: { color: "red", fontSize: "12px" },
   checkboxContainer: { display: "flex", gap: "10px" },
+  checkboxText: { fontSize: "13px", color: "#bbb" },
   submitButton: {
     padding: "14px",
     background: "linear-gradient(135deg, #FF6F00, #FF9800)",
@@ -314,9 +300,7 @@ const styles = {
     color: "white",
     fontSize: "16px",
     fontWeight: "600",
-    letterSpacing: "0.5px",
     cursor: "pointer",
-    boxShadow: "0 4px 15px rgba(255, 152, 0, 0.3)",
   },
   avatarContainer: { textAlign: "center", marginBottom: "15px" },
   avatar: { width: "60px", height: "60px", borderRadius: "50%" },
@@ -335,12 +319,9 @@ const styles = {
     color: "#90CAF9",
     cursor: "pointer",
     fontSize: "14px",
-    fontFamily: "Poppins, sans-serif",
     display: "block",
     margin: "20px auto 0",
-    opacity: 0.8,
-    letterSpacing: "0.5px",
-  }
+  },
 };
 
 export default RegisterView;

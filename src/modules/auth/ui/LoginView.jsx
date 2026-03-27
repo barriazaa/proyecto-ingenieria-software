@@ -10,12 +10,13 @@ const LoginView = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showEmailForm, setShowEmailForm] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
 
-  //  LOGIN EMAIL
+  // LOGIN EMAIL
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -45,7 +46,7 @@ const LoginView = () => {
     setLoading(false);
   };
 
-  //  LOGIN GOOGLE
+  // LOGIN GOOGLE
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
@@ -75,6 +76,13 @@ const LoginView = () => {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
+        whileHover={{
+          boxShadow: `
+        0 10px 40px rgba(203, 91, 0, 0.6),
+        0 0 40px rgba(255, 152, 0, 0.5),
+        0 0 80px rgba(255, 119, 0, 0.9)
+      `
+        }}
       >
         <h1 style={styles.title}>Control de Asistencia</h1>
 
@@ -97,8 +105,8 @@ const LoginView = () => {
           <>
             <motion.button
               style={styles.googleButton}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.96 }}
               onClick={handleGoogleLogin}
               disabled={loading}
             >
@@ -129,23 +137,38 @@ const LoginView = () => {
           </>
         )}
 
+        {/* FORM EMAIL */}
         {showEmailForm && (
           <form onSubmit={handleLogin} style={styles.form}>
-            <input
-              type="email"
-              placeholder="Correo electrónico"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={styles.input}
-            />
+            {/* EMAIL */}
+            <div style={styles.inputWrapper}>
+              <input
+                type="email"
+                placeholder="Correo electrónico"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={styles.input}
+              />
+            </div>
 
-            <input
-              type="password"
-              placeholder="Contraseña"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={styles.input}
-            />
+            {/* PASSWORD */}
+            <div style={styles.inputWrapper}>
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={styles.input}
+              />
+
+              <motion.span
+                whileTap={{ scale: 0.8 }}
+                style={styles.eyeIcon}
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? "🙈" : "👁"}
+              </motion.span>
+            </div>
 
             <motion.button
               type="submit"
@@ -174,7 +197,6 @@ const LoginView = () => {
   );
 };
 
-
 const styles = {
   container: {
     height: "100vh",
@@ -189,41 +211,69 @@ const styles = {
   loginBox: {
     width: "90%",
     maxWidth: "380px",
-    padding: "35px",
+    padding: "30px",
     borderRadius: "20px",
     background: "rgba(0, 0, 0, 0.85)",
     color: "white",
     boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
     textAlign: "center",
+    boxSizing: "border-box",
+    border: "1px solid #fb8c00",
+    boxShadow: `
+    0 10px 40px rgba(0,0,0,0.6),
+    0 0 20px rgba(255, 123, 0, 0.64),
+    0 0 50px #ff6f00e0
+  `,
   },
 
   title: {
     marginBottom: "20px",
+    fontWeight: "600",
   },
 
   form: {
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
+    gap: "14px",
+    width: "100%",
+  },
+
+  inputWrapper: {
+    position: "relative",
+    width: "100%",
   },
 
   input: {
-    padding: "12px",
+    width: "100%",
+    padding: "14px 45px 14px 14px",
     borderRadius: "10px",
     border: "1px solid #333",
     background: "#111",
     color: "white",
     outline: "none",
+    fontSize: "14px",
+    boxSizing: "border-box",
+  },
+
+  eyeIcon: {
+    position: "absolute",
+    right: "12px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    cursor: "pointer",
+    fontSize: "18px",
+    opacity: 0.7,
   },
 
   button: {
-    padding: "12px",
+    padding: "14px",
     borderRadius: "10px",
     border: "none",
     background: "linear-gradient(135deg, #FF6F00, #FF9800)",
     color: "white",
     cursor: "pointer",
     fontWeight: "600",
+    fontSize: "15px",
   },
 
   googleButton: {
@@ -238,6 +288,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     gap: "10px",
+    marginBottom: "10px",
   },
 
   textButton: {
