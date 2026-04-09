@@ -1,0 +1,49 @@
+query GetUserSubjects($userId: UUID!) @auth(level: USER) {
+  user(id: $userId) {
+    username
+    subjects_via_UserSubject {
+      id
+      name
+      subjectCode
+      course {
+        name
+      }
+    }
+  }
+}
+
+mutation CreateAttendanceSession($subjectId: UUID!, $sessionDate: Date!, $startTime: Timestamp!, $endTime: Timestamp!, $qrCodeValue: String!, $location: String) @auth(expr: "auth.token.role == 'instructor'") {
+  attendanceSession_insert(data: {
+    subjectId: $subjectId,
+    sessionDate: $sessionDate,
+    startTime: $startTime,
+    endTime: $endTime,
+    qrCodeValue: $qrCodeValue,
+    location: $location,
+    createdAt_expr: "request.time"
+  }) {
+    id
+  }
+}
+
+mutation RecordUserAttendance($attendanceSessionId: UUID!, $status: String!, $notes: String) @auth(level: USER) {
+  attendanceRecord_insert(data: {
+    userId_expr: "auth.uid",
+    attendanceSessionId: $attendanceSessionId,
+    status: $status,
+    notes: $notes,
+    attendedAt_expr: "request.time",
+    createdAt_expr: "request.time"
+  }) {
+    id
+  }
+}
+
+query ListAllCourses @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public as it only retrieves public course information.") {
+  courses {
+    id
+    name
+    description
+    createdAt
+  }
+}

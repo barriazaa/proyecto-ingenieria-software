@@ -1,0 +1,63 @@
+type User @table {
+  username: String!
+  email: String!
+  role: String!
+  createdAt: Timestamp!
+  firstName: String
+  lastName: String
+  photoUrl: String
+}
+
+type Course @table {
+  name: String!
+  createdAt: Timestamp!
+  description: String
+}
+
+type Subject @table {
+  name: String!
+  createdAt: Timestamp!
+  description: String
+  subjectCode: String
+  course: Course
+}
+
+type Group @table {
+  name: String!
+  createdAt: Timestamp!
+  description: String
+}
+
+type AttendanceSession @table {
+  sessionDate: Date!
+  startTime: Timestamp!
+  endTime: Timestamp!
+  qrCodeValue: String!
+  createdAt: Timestamp!
+  location: String
+  subject: Subject
+}
+
+type AttendanceRecord @table {
+  attendedAt: Timestamp!
+  status: String!
+  createdAt: Timestamp!
+  notes: String
+  user: User
+  attendanceSession: AttendanceSession
+}
+
+type UserGroup @table(key: ["user", "group"]) {
+  user: User!
+  group: Group!
+}
+
+type UserSubject @table(key: ["user", "subject"]) {
+  user: User!
+  subject: Subject!
+}
+
+type GroupSubject @table(key: ["group", "subject"]) {
+  group: Group!
+  subject: Subject!
+}

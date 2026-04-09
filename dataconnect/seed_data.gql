@@ -1,0 +1,112 @@
+mutation CreateDemoData @transaction @auth(level: USER, insecureReason: "This is a seed data mutation and is only run by an authenticated user to populate the database.") {
+  user_insertMany(data: [
+    {
+      id: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      username: "john.doe",
+      email: "john.doe@example.com",
+      role: "student",
+      createdAt: "2023-10-27T10:00:00Z",
+      firstName: "John",
+      lastName: "Doe",
+      photoUrl: "https://example.com/john.jpg"
+    },
+    {
+      id: "b2c3d4e5-f6a7-8901-2345-67890abcdef0",
+      username: "jane.smith",
+      email: "jane.smith@example.com",
+      role: "teacher",
+      createdAt: "2023-10-27T10:05:00Z",
+      firstName: "Jane",
+      lastName: "Smith",
+      photoUrl: "https://example.com/jane.jpg"
+    }
+  ])
+  course_insertMany(data: [
+    {
+      id: "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
+      name: "Computer Science I",
+      createdAt: "2023-10-27T10:10:00Z",
+      description: "Introduction to Computer Science."
+    },
+    {
+      id: "d4e5f6a7-b8c9-0123-4567-890abcdef123",
+      name: "Mathematics II",
+      createdAt: "2023-10-27T10:15:00Z",
+      description: "Advanced Calculus."
+    }
+  ])
+  subject_insertMany(data: [
+    {
+      id: "e5f6a7b8-c9d0-1234-5678-90abcdef1234",
+      name: "Introduction to Programming",
+      createdAt: "2023-10-27T10:20:00Z",
+      description: "Basic programming concepts.",
+      subjectCode: "CS101",
+      courseId: "c3d4e5f6-a7b8-9012-3456-7890abcdef12"
+    },
+    {
+      id: "f6a7b8c9-d0e1-2345-6789-0abcdef12345",
+      name: "Linear Algebra",
+      createdAt: "2023-10-27T10:25:00Z",
+      description: "Vector spaces and linear transformations.",
+      subjectCode: "MA201",
+      courseId: "d4e5f6a7-b8c9-0123-4567-890abcdef123"
+    }
+  ])
+  userSubject_insertMany(data: [
+    {
+      userId: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      subjectId: "e5f6a7b8-c9d0-1234-5678-90abcdef1234"
+    },
+    {
+      userId: "b2c3d4e5-f6a7-8901-2345-67890abcdef0",
+      subjectId: "e5f6a7b8-c9d0-1234-5678-90abcdef1234"
+    },
+    {
+      userId: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      subjectId: "f6a7b8c9-d0e1-2345-6789-0abcdef12345"
+    }
+  ])
+  group_insertMany(data: [
+    {
+      id: "01234567-89ab-cdef-0123-456789abcdef0",
+      name: "Batch A",
+      createdAt: "2023-10-27T10:30:00Z",
+      description: "Morning class for Computer Science I"
+    }
+  ])
+  userGroup_insertMany(data: [
+    {
+      userId: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      groupId: "01234567-89ab-cdef-0123-456789abcdef0"
+    }
+  ])
+  groupSubject_insertMany(data: [
+    {
+      groupId: "01234567-89ab-cdef-0123-456789abcdef0",
+      subjectId: "e5f6a7b8-c9d0-1234-5678-90abcdef1234"
+    }
+  ])
+  attendanceSession_insertMany(data: [
+    {
+      id: "12345678-90ab-cdef-1234-567890abcdef1",
+      sessionDate: "2023-10-27",
+      startTime: "2023-10-27T10:00:00Z",
+      endTime: "2023-10-27T11:00:00Z",
+      qrCodeValue: "CS101-20231027-1000",
+      createdAt: "2023-10-27T09:50:00Z",
+      location: "Room 101",
+      subjectId: "e5f6a7b8-c9d0-1234-5678-90abcdef1234"
+    }
+  ])
+  attendanceRecord_insertMany(data: [
+    {
+      attendedAt: "2023-10-27T10:01:00Z",
+      status: "Present",
+      createdAt: "2023-10-27T10:02:00Z",
+      notes: "Arrived on time",
+      userId: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      attendanceSessionId: "12345678-90ab-cdef-1234-567890abcdef1"
+    }
+  ])
+}
