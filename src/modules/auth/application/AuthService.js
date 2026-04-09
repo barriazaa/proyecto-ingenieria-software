@@ -18,7 +18,7 @@ export const loginWithEmail = async (email, password) => {
   return userDB;
 };
 
-// Login con Google
+// Login con Google lud
 export const loginWithGoogle = async () => {
   const firebaseUser = await loginWithGoogleFirebase();
 
@@ -64,4 +64,4 @@ export const registerUser = async (firebaseUser, rol) => {
   await saveUserToDB(newUser);
 
   return newUser;
-};
+}; 

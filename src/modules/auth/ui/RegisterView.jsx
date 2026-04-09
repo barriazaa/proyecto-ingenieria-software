@@ -243,7 +243,7 @@ const RegisterView = () => {
   );
 };
 
-// ESTILOS
+// Nuevos ESTILOS lud
 const styles = {
   container: {
     fontFamily: "Poppins, sans-serif",
@@ -324,4 +324,4 @@ const styles = {
   },
 };
 
-export default RegisterView;
+export default RegisterView; 

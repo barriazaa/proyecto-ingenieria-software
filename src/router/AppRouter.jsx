@@ -5,7 +5,7 @@ import LoginView from "../modules/auth/ui/LoginView";
 import RegisterView from "../modules/auth/ui/RegisterView";
 
 
-const Home = () => <h1>Bienvenido 👋</h1>;
+const Home = () => <h1>Bienvenido </h1>;
 
 
 const AnimatedRoutes = () => {

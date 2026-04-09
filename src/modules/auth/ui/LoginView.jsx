@@ -16,7 +16,7 @@ const LoginView = () => {
 
   const navigate = useNavigate();
 
-  // LOGIN EMAIL
+  // LOGIN POR EMAIL
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -310,4 +310,4 @@ const styles = {
   },
 };
 
-export default LoginView;
+export default LoginView; 

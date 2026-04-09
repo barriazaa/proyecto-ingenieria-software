@@ -131,7 +131,7 @@ const Login = () => {
           <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '20px' }}>SISTEMA DE CONTROL</div>
         </div>
 
-        {/* BOTÓN DE GOOGLE - Siempre visible al inicio */}
+        {/* BOTÓN DE GOOGLE*/}
         {!showEmailForm && (
           <>
             <button style={styles.googleButton} onClick={handleGoogleLogin}>
@@ -201,4 +201,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Login; 
