@@ -148,15 +148,25 @@ const RegisterView = () => {
               <form onSubmit={handleSubmit} style={styles.form}>
 
                 {/* CARNET */}
-                <div style={{
-                  ...styles.inputGroup,
-                  ...(focus === "carnet" && styles.focus),
-                  ...(errors.carnet && styles.errorBorder)
-                }}>
+                <div
+                  style={{
+                    ...styles.inputContainer,
+                    ...(focus === "carnet" ? styles.focus : {}),
+                    ...(errors.carnet ? styles.errorBorder : {}),
+                  }}
+                >
+                  <label
+                    style={{
+                      ...styles.floatingLabel,
+                      ...(focus === "carnet" || form.carnet ? styles.labelActive : {}),
+                    }}
+                  >
+                    Número de carnet
+                  </label>
+
                   <input
                     type="text"
                     name="carnet"
-                    placeholder="Número de carnet"
                     value={form.carnet}
                     onChange={handleChange}
                     onFocus={() => setFocus("carnet")}
@@ -167,15 +177,25 @@ const RegisterView = () => {
                 {errors.carnet && <span style={styles.errorText}>{errors.carnet}</span>}
 
                 {/* NOMBRES */}
-                <div style={{
-                  ...styles.inputGroup,
-                  ...(focus === "nombres" && styles.focus),
-                  ...(errors.nombres && styles.errorBorder)
-                }}>
+                <div
+                  style={{
+                    ...styles.inputContainer,
+                    ...(focus === "nombres" ? styles.focus : {}),
+                    ...(errors.nombres ? styles.errorBorder : {}),
+                  }}
+                >
+                  <label
+                    style={{
+                      ...styles.floatingLabel,
+                      ...(focus === "nombres" || form.nombres ? styles.labelActive : {}),
+                    }}
+                  >
+                    Nombres
+                  </label>
+
                   <input
                     type="text"
                     name="nombres"
-                    placeholder="Nombres"
                     value={form.nombres}
                     onChange={handleChange}
                     onFocus={() => setFocus("nombres")}
@@ -186,15 +206,25 @@ const RegisterView = () => {
                 {errors.nombres && <span style={styles.errorText}>{errors.nombres}</span>}
 
                 {/* APELLIDOS */}
-                <div style={{
-                  ...styles.inputGroup,
-                  ...(focus === "apellidos" && styles.focus),
-                  ...(errors.apellidos && styles.errorBorder)
-                }}>
+                <div
+                  style={{
+                    ...styles.inputContainer,
+                    ...(focus === "apellidos" ? styles.focus : {}),
+                    ...(errors.apellidos ? styles.errorBorder : {}),
+                  }}
+                >
+                  <label
+                    style={{
+                      ...styles.floatingLabel,
+                      ...(focus === "apellidos" || form.apellidos ? styles.labelActive : {}),
+                    }}
+                  >
+                    Apellidos
+                  </label>
+
                   <input
                     type="text"
                     name="apellidos"
-                    placeholder="Apellidos"
                     value={form.apellidos}
                     onChange={handleChange}
                     onFocus={() => setFocus("apellidos")}
@@ -253,6 +283,7 @@ const styles = {
     alignItems: "center",
     background: "#0D47A1",
   },
+
   card: {
     width: "90%",
     maxWidth: "420px",
@@ -268,7 +299,11 @@ const styles = {
     0 0 50px #ff6f00e0
     `,
   },
-  rightPanel: { color: "white" },
+
+  rightPanel: {
+    color: "white"
+  },
+
   button: {
     width: "100%",
     padding: "12px",
@@ -279,19 +314,53 @@ const styles = {
     color: "white",
     cursor: "pointer",
   },
-  form: { marginTop: "20px", display: "flex", flexDirection: "column", gap: "12px" },
+
+  form: {
+    marginTop: "20px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px"
+  },
+
   inputGroup: {
     border: "1px solid #333",
     borderRadius: "10px",
     padding: "12px",
     boxSizing: "border-box",
   },
-  focus: { border: "1px solid #2196F3" },
-  errorBorder: { border: "1px solid red" },
-  input: { width: "100%", background: "transparent", border: "none", color: "white", outline: "none" },
-  errorText: { color: "red", fontSize: "12px" },
-  checkboxContainer: { display: "flex", gap: "10px" },
-  checkboxText: { fontSize: "13px", color: "#bbb" },
+
+  focus: {
+    border: "1px solid #2196F3",
+    boxShadow: "0 0 10px rgba(255,152,0,0.4)",
+  },
+
+  errorBorder: {
+    border: "1px solid red"
+  },
+
+  input: {
+    width: "100%",
+    background: "transparent",
+    border: "none",
+    color: "white",
+    outline: "none"
+  },
+
+  errorText: {
+    color: "red",
+    fontSize: "12px"
+  },
+
+  checkboxContainer: {
+    display: "flex",
+    gap: "10px"
+  },
+
+  checkboxText: {
+    fontSize: "13px",
+    color: "#bbb"
+  },
+
   submitButton: {
     padding: "14px",
     background: "linear-gradient(135deg, #FF6F00, #FF9800)",
@@ -302,8 +371,18 @@ const styles = {
     fontWeight: "600",
     cursor: "pointer",
   },
-  avatarContainer: { textAlign: "center", marginBottom: "15px" },
-  avatar: { width: "60px", height: "60px", borderRadius: "50%" },
+
+  avatarContainer: {
+    textAlign: "center",
+    marginBottom: "15px"
+  },
+
+  avatar: {
+    width: "60px",
+    height: "60px",
+    borderRadius: "50%"
+  },
+
   serverError: {
     marginTop: "10px",
     padding: "10px",
@@ -312,6 +391,7 @@ const styles = {
     borderRadius: "8px",
     textAlign: "center",
   },
+
   link: {
     marginTop: "20px",
     background: "none",
@@ -322,6 +402,42 @@ const styles = {
     display: "block",
     margin: "20px auto 0",
   },
-};
 
+  inputContainer: {
+    position: "relative",
+    border: "1px solid #333",
+    borderRadius: "12px",
+    padding: "14px 12px 10px 12px",
+    background: "#111",
+    transition: "0.3s",
+  },
+
+  floatingLabel: {
+    position: "absolute",
+    left: "12px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    fontSize: "14px",
+    color: "#888",
+    pointerEvents: "none",
+    transition: "0.3s",
+    background: "#111",
+    padding: "0 5px",
+  },
+
+  labelActive: {
+    top: "-8px",
+    fontSize: "11px",
+    color: "#FF9800",
+  },
+
+  input: {
+    width: "100%",
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    color: "white",
+    fontSize: "14px",
+  },
+};
 export default RegisterView; 

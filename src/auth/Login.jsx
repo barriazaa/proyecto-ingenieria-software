@@ -43,11 +43,11 @@ const Login = () => {
       backgroundImage: `url(${backgroundImage})`,
       backgroundSize: "cover",
       backgroundPosition: "center",
-      backgroundRepeat: "no-repeat", // Asegura que no se repita
+      backgroundRepeat: "no-repeat", 
       display: "flex",
       justifyContent: "center",
       alignItems: "center",
-      position: "fixed", // Fija el fondo a la ventana para ignorar otros elementos
+      position: "fixed",
       top: 0,
       left: 0,
       margin: 0,
@@ -64,7 +64,7 @@ const Login = () => {
       border: "1px rgba(255, 255, 255, 0.18) solid",
       textAlign: "center",
       color: "white",
-      transition: "all 0.5s ease", // Animación suave al crecer el cuadro
+      transition: "all 0.5s ease", 
     },
     logoContainer: { marginBottom: "30px" },
     icon: { fontSize: "50px", color: "#00c4cc", marginBottom: "10px" },

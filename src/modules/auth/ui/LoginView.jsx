@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  loginWithEmail,
-  loginWithGoogle,
-} from "../application/AuthService";
+import { useState }
+  from "react";
+import { useNavigate }
+  from "react-router-dom";
+import { loginWithEmail, loginWithGoogle, }
+  from "../application/AuthService";
 import { motion, AnimatePresence } from "framer-motion";
 
 const LoginView = () => {
@@ -162,7 +162,6 @@ const LoginView = () => {
               />
 
               <motion.span
-                whileTap={{ scale: 0.8 }}
                 style={styles.eyeIcon}
                 onClick={() => setShowPassword(!showPassword)}
               >
