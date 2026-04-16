@@ -3,10 +3,8 @@ import { AnimatePresence } from "framer-motion";
 
 import LoginView from "../modules/auth/ui/LoginView";
 import RegisterView from "../modules/auth/ui/RegisterView";
-
-
-const Home = () => <h1>Bienvenido </h1>;
-
+import Catedratico from "../pages/Catedratico";
+import Cursos from "../pages/Cursos";
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -16,12 +14,13 @@ const AnimatedRoutes = () => {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<LoginView />} />
         <Route path="/register" element={<RegisterView />} />
-        <Route path="/home" element={<Home />} />
+        <Route path="/home" element={<Catedratico />} />
+        <Route path="/catedratico" element={<Catedratico />} />
+        <Route path="/cursos" element={<Cursos />} />
       </Routes>
     </AnimatePresence>
   );
 };
-
 
 const AppRouter = () => {
   return (
