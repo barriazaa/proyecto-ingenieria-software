@@ -1,19 +1,19 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  filterCourses,
+  getInitialCourseForm,
+  getInitialCourses,
+  removeCourse,
+  saveCourse,
+  toggleCourseStatus,
+} from "../application/courseService";
+import { getCourseStatusLabel } from "../domain/courseRules";
+import { ROUTES } from "../../../shared/utils/routePaths";
 
-const Cursos = () => {
+const CoursesView = () => {
   const navigate = useNavigate();
-
-  const initialForm = {
-    id: null,
-    codigo: "",
-    nombre: "",
-    seccion: "",
-    docente: "",
-    horario: "",
-    aula: "",
-    estado: true,
-  };
+  const initialForm = getInitialCourseForm();
 
   const [periodo, setPeriodo] = useState("2025");
   const [mostrar, setMostrar] = useState(5);
@@ -22,101 +22,21 @@ const Cursos = () => {
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [paginaActual, setPaginaActual] = useState(1);
+  const [cursos, setCursos] = useState(getInitialCourses());
 
-  const [cursos, setCursos] = useState([
-    {
-      id: 1,
-      codigo: "SIS-101",
-      nombre: "Sistemas de Información",
-      seccion: "A",
-      docente: "Otto Ortiz",
-      horario: "07:00 - 08:30",
-      aula: "Laboratorio 1",
-      estado: true,
-    },
-    {
-      id: 2,
-      codigo: "BD2-202",
-      nombre: "Bases de Datos II",
-      seccion: "B",
-      docente: "Carlos Méndez",
-      horario: "08:40 - 10:10",
-      aula: "Salón 4",
-      estado: true,
-    },
-    {
-      id: 3,
-      codigo: "PRO-303",
-      nombre: "Programación III",
-      seccion: "A",
-      docente: "María López",
-      horario: "10:20 - 11:50",
-      aula: "Laboratorio 2",
-      estado: false,
-    },
-    {
-      id: 4,
-      codigo: "RED-210",
-      nombre: "Redes de Computadoras",
-      seccion: "C",
-      docente: "Juan Pérez",
-      horario: "13:00 - 14:30",
-      aula: "Salón 7",
-      estado: true,
-    },
-    {
-      id: 5,
-      codigo: "ING-110",
-      nombre: "Ingeniería de Software",
-      seccion: "A",
-      docente: "Ana García",
-      horario: "14:40 - 16:10",
-      aula: "Salón 3",
-      estado: true,
-    },
-    {
-      id: 6,
-      codigo: "MAT-120",
-      nombre: "Matemática Aplicada",
-      seccion: "B",
-      docente: "Luis Ramírez",
-      horario: "16:20 - 17:50",
-      aula: "Salón 5",
-      estado: true,
-    },
-  ]);
+  const cursosFiltrados = useMemo(
+    () => filterCourses(cursos, busqueda),
+    [cursos, busqueda]
+  );
 
-  const cursosFiltrados = useMemo(() => {
-    return cursos.filter((curso) => {
-      const texto =
-        `${curso.codigo} ${curso.nombre} ${curso.seccion} ${curso.docente} ${curso.horario} ${curso.aula}`.toLowerCase();
-      return texto.includes(busqueda.toLowerCase());
-    });
-  }, [cursos, busqueda]);
-
-  const totalPaginas = Math.ceil(cursosFiltrados.length / mostrar);
+  const totalPaginas = Math.ceil(cursosFiltrados.length / mostrar) || 1;
   const inicio = (paginaActual - 1) * mostrar;
   const fin = inicio + mostrar;
   const cursosMostrados = cursosFiltrados.slice(inicio, fin);
 
-  const toggleEstado = (id) => {
-    setCursos((prev) =>
-      prev.map((curso) =>
-        curso.id === id ? { ...curso, estado: !curso.estado } : curso
-      )
-    );
-  };
-
-  const eliminarCurso = (id) => {
-    const confirmar = window.confirm("¿Deseas eliminar este curso?");
-    if (!confirmar) return;
-
-    setCursos((prev) => prev.filter((curso) => curso.id !== id));
-  };
-
   const abrirNuevo = () => {
     setEditando(false);
-    setForm(initialForm);
+    setForm(getInitialCourseForm());
     setModalOpen(true);
   };
 
@@ -128,7 +48,7 @@ const Cursos = () => {
 
   const cerrarModal = () => {
     setModalOpen(false);
-    setForm(initialForm);
+    setForm(getInitialCourseForm());
     setEditando(false);
   };
 
@@ -141,39 +61,23 @@ const Cursos = () => {
   };
 
   const guardarCurso = () => {
-    if (
-      !form.codigo.trim() ||
-      !form.nombre.trim() ||
-      !form.seccion.trim() ||
-      !form.docente.trim() ||
-      !form.horario.trim() ||
-      !form.aula.trim()
-    ) {
-      alert("Completa todos los campos del curso.");
-      return;
+    try {
+      const updatedCourses = saveCourse({
+        courses: cursos,
+        form,
+        isEditing: editando,
+      });
+      setCursos(updatedCourses);
+      cerrarModal();
+    } catch (error) {
+      alert(error.message);
     }
-
-    if (editando) {
-      setCursos((prev) =>
-        prev.map((curso) => (curso.id === form.id ? form : curso))
-      );
-    } else {
-      const nuevoCurso = {
-        ...form,
-        id: Date.now(),
-      };
-      setCursos((prev) => [nuevoCurso, ...prev]);
-    }
-
-    cerrarModal();
   };
 
   const cambiarPagina = (nuevaPagina) => {
     if (nuevaPagina < 1 || nuevaPagina > totalPaginas) return;
     setPaginaActual(nuevaPagina);
   };
-
-  const obtenerTextoEstado = (estado) => (estado ? "Activo" : "Inactivo");
 
   return (
     <div style={styles.page}>
@@ -183,16 +87,15 @@ const Cursos = () => {
       <div style={styles.wrapper}>
         <div style={styles.headerTop}>
           <div>
-            <span style={styles.sectionLabel}>Panel académico</span>
-            <h1 style={styles.pageTitle}>Gestión de Cursos</h1>
+            <span style={styles.sectionLabel}>Panel academico</span>
+            <h1 style={styles.pageTitle}>Gestion de Cursos</h1>
             <p style={styles.pageSubtitle}>
-              Administra los cursos asignados al catedrático de manera clara,
-              ordenada y profesional.
+              Administra los cursos asignados al maestro de manera clara, ordenada y profesional.
             </p>
           </div>
 
           <div style={styles.periodoContainer}>
-            <label style={styles.periodoTitle}>Periodo académico</label>
+            <label style={styles.periodoTitle}>Periodo academico</label>
             <div style={styles.periodoBox}>
               <span style={styles.periodoLabel}>Periodo</span>
               <select
@@ -228,12 +131,12 @@ const Cursos = () => {
         </div>
 
         <div style={styles.topBar}>
-          <button style={styles.backButton} onClick={() => navigate("/home")}>
-            ← Regresar al panel
+          <button style={styles.backButton} onClick={() => navigate(ROUTES.home)}>
+            Regresar al panel
           </button>
 
           <button style={styles.newButtonLarge} onClick={abrirNuevo}>
-            + Nuevo Curso
+            Nuevo Curso
           </button>
         </div>
 
@@ -275,7 +178,7 @@ const Cursos = () => {
                   setPaginaActual(1);
                 }}
                 style={styles.searchInput}
-                placeholder="Código, curso, sección o docente"
+                placeholder="Codigo, curso, seccion o docente"
               />
             </div>
           </div>
@@ -285,9 +188,9 @@ const Cursos = () => {
               <thead>
                 <tr>
                   <th style={styles.th}>#</th>
-                  <th style={styles.th}>Código</th>
+                  <th style={styles.th}>Codigo</th>
                   <th style={styles.th}>Curso</th>
-                  <th style={styles.th}>Sección</th>
+                  <th style={styles.th}>Seccion</th>
                   <th style={styles.th}>Docente</th>
                   <th style={styles.th}>Horario</th>
                   <th style={styles.th}>Aula</th>
@@ -309,43 +212,35 @@ const Cursos = () => {
                       <td style={styles.td}>{curso.aula}</td>
                       <td style={styles.tdCenter}>
                         <button
-                          onClick={() => toggleEstado(curso.id)}
+                          onClick={() => setCursos((prev) => toggleCourseStatus(prev, curso.id))}
                           style={{
                             ...styles.statusButton,
                             backgroundColor: curso.estado ? "#22c55e" : "#64748b",
                           }}
                         >
-                          <span
-                            style={{
-                              ...styles.statusDot,
-                              backgroundColor: "#ffffff",
-                            }}
-                          ></span>
-                          {obtenerTextoEstado(curso.estado)}
+                          <span style={styles.statusDot}></span>
+                          {getCourseStatusLabel(curso.estado)}
                         </button>
                       </td>
                       <td style={styles.tdCenter}>
                         <div style={styles.actionButtons}>
                           <button
-                            style={{
-                              ...styles.iconButton,
-                              ...styles.editButton,
-                            }}
+                            style={{ ...styles.iconButton, ...styles.editButton }}
                             onClick={() => abrirEditar(curso)}
                             title="Editar"
                           >
-                            ✏️
+                            Ed
                           </button>
 
                           <button
-                            style={{
-                              ...styles.iconButton,
-                              ...styles.deleteButton,
+                            style={{ ...styles.iconButton, ...styles.deleteButton }}
+                            onClick={() => {
+                              if (!window.confirm("Deseas eliminar este curso?")) return;
+                              setCursos((prev) => removeCourse(prev, curso.id));
                             }}
-                            onClick={() => eliminarCurso(curso.id)}
                             title="Eliminar"
                           >
-                            🗑
+                            El
                           </button>
                         </div>
                       </td>
@@ -365,8 +260,7 @@ const Cursos = () => {
           <div style={styles.footer}>
             <span style={styles.footerText}>
               Mostrando {cursosFiltrados.length === 0 ? 0 : inicio + 1} a{" "}
-              {Math.min(fin, cursosFiltrados.length)} de {cursosFiltrados.length}{" "}
-              registros
+              {Math.min(fin, cursosFiltrados.length)} de {cursosFiltrados.length} registros
             </span>
 
             <div style={styles.pagination}>
@@ -386,12 +280,10 @@ const Cursos = () => {
               <button
                 style={{
                   ...styles.pageButton,
-                  ...(paginaActual === totalPaginas || totalPaginas === 0
-                    ? styles.pageButtonDisabled
-                    : {}),
+                  ...(paginaActual === totalPaginas ? styles.pageButtonDisabled : {}),
                 }}
                 onClick={() => cambiarPagina(paginaActual + 1)}
-                disabled={paginaActual === totalPaginas || totalPaginas === 0}
+                disabled={paginaActual === totalPaginas}
               >
                 Siguiente
               </button>
@@ -405,22 +297,20 @@ const Cursos = () => {
           <div style={styles.modal}>
             <div style={styles.modalHeader}>
               <div>
-                <h3 style={styles.modalTitle}>
-                  {editando ? "Editar Curso" : "Nuevo Curso"}
-                </h3>
+                <h3 style={styles.modalTitle}>{editando ? "Editar Curso" : "Nuevo Curso"}</h3>
                 <p style={styles.modalSubtitle}>
-                  Completa la información correspondiente del curso.
+                  Completa la informacion correspondiente del curso.
                 </p>
               </div>
 
               <button style={styles.modalClose} onClick={cerrarModal}>
-                ×
+                X
               </button>
             </div>
 
             <div style={styles.formGrid}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Código</label>
+                <label style={styles.label}>Codigo</label>
                 <input
                   type="text"
                   name="codigo"
@@ -444,7 +334,7 @@ const Cursos = () => {
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>Sección</label>
+                <label style={styles.label}>Seccion</label>
                 <input
                   type="text"
                   name="seccion"
@@ -524,8 +414,7 @@ const styles = {
     minHeight: "100vh",
     position: "relative",
     overflow: "hidden",
-    background:
-      "linear-gradient(135deg, #eff6ff 0%, #f8fafc 45%, #ecfeff 100%)",
+    background: "linear-gradient(135deg, #eff6ff 0%, #f8fafc 45%, #ecfeff 100%)",
     padding: "36px 20px 48px",
     fontFamily: "Arial, sans-serif",
   },
@@ -668,7 +557,6 @@ const styles = {
     fontWeight: "700",
     fontSize: "14px",
     boxShadow: "0 8px 20px rgba(15, 23, 42, 0.05)",
-    transition: "0.3s ease",
   },
   newButtonLarge: {
     background: "linear-gradient(135deg, #06b6d4, #0891b2)",
@@ -680,7 +568,6 @@ const styles = {
     fontWeight: "700",
     fontSize: "14px",
     boxShadow: "0 12px 24px rgba(8, 145, 178, 0.22)",
-    transition: "0.3s ease",
   },
   card: {
     backgroundColor: "rgba(255,255,255,0.92)",
@@ -693,8 +580,6 @@ const styles = {
   cardHeader: {
     padding: "24px 28px 18px",
     borderBottom: "1px solid #eef2f7",
-    background:
-      "linear-gradient(180deg, rgba(248,250,252,0.9) 0%, rgba(255,255,255,0.9) 100%)",
   },
   cardTitle: {
     margin: 0,
@@ -754,7 +639,6 @@ const styles = {
     backgroundColor: "#fff",
     fontSize: "14px",
     color: "#0f172a",
-    boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.03)",
   },
   tableContainer: {
     overflowX: "auto",
@@ -874,13 +758,13 @@ const styles = {
     fontWeight: "800",
     minWidth: "110px",
     justifyContent: "center",
-    boxShadow: "0 8px 18px rgba(15, 23, 42, 0.08)",
   },
   statusDot: {
     width: "10px",
     height: "10px",
     borderRadius: "50%",
     display: "inline-block",
+    backgroundColor: "#ffffff",
   },
   actionButtons: {
     display: "flex",
@@ -895,8 +779,8 @@ const styles = {
     height: "40px",
     borderRadius: "12px",
     cursor: "pointer",
-    fontSize: "14px",
-    boxShadow: "0 8px 16px rgba(15, 23, 42, 0.10)",
+    fontSize: "12px",
+    fontWeight: "700",
   },
   editButton: {
     background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
@@ -949,7 +833,7 @@ const styles = {
     width: "40px",
     height: "40px",
     borderRadius: "12px",
-    fontSize: "24px",
+    fontSize: "18px",
     cursor: "pointer",
     color: "#64748b",
   },
@@ -1012,8 +896,7 @@ const styles = {
     borderRadius: "12px",
     cursor: "pointer",
     fontWeight: "700",
-    boxShadow: "0 10px 22px rgba(37, 99, 235, 0.20)",
   },
 };
 
-export default Cursos;
+export default CoursesView;

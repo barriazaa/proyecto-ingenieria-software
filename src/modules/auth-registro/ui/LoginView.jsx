@@ -1,10 +1,31 @@
-import { useState }
-  from "react";
-import { useNavigate }
-  from "react-router-dom";
-import { loginWithEmail, loginWithGoogle, }
-  from "../application/AuthService";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { loginWithEmail, loginWithGoogle } from "../application/AuthService";
+import { ROUTES } from "../../../shared/utils/routePaths";
+
+const getLoginErrorMessage = (error) => {
+  if (error.message === "Completa todos los campos") {
+    return error.message;
+  }
+
+  if (error.message === "Usuario no registrado") {
+    return "Tu cuenta no esta registrada.";
+  }
+
+  if (error.code === "auth/user-not-found") {
+    return "El usuario no existe";
+  }
+
+  if (
+    error.code === "auth/wrong-password" ||
+    error.code === "auth/invalid-credential"
+  ) {
+    return "Contrasena incorrecta";
+  }
+
+  return "Error al iniciar sesion";
+};
 
 const LoginView = () => {
   const [email, setEmail] = useState("");
@@ -16,37 +37,23 @@ const LoginView = () => {
 
   const navigate = useNavigate();
 
-  // LOGIN POR EMAIL
   const handleLogin = async (e) => {
     e.preventDefault();
-
-    if (!email || !password) {
-      setError("Completa todos los campos");
-      return;
-    }
 
     try {
       setLoading(true);
       setError("");
 
       await loginWithEmail(email, password);
-      navigate("/home");
+      navigate(ROUTES.home);
     } catch (err) {
       console.error(err);
-
-      if (err.code === "auth/user-not-found") {
-        setError("El usuario no existe");
-      } else if (err.code === "auth/wrong-password") {
-        setError("Contraseña incorrecta");
-      } else {
-        setError("Error al iniciar sesión");
-      }
+      setError(getLoginErrorMessage(err));
     }
 
     setLoading(false);
   };
 
-  // LOGIN GOOGLE
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
@@ -55,15 +62,15 @@ const LoginView = () => {
       const result = await loginWithGoogle();
 
       if (result.needsRegistration) {
-        setError("Tu cuenta no está registrada. Regístrate primero.");
+        setError("Tu cuenta no esta registrada. Registrate primero.");
         setLoading(false);
         return;
       }
 
-      navigate("/home");
+      navigate(ROUTES.home);
     } catch (err) {
       console.error(err);
-      setError("Error al iniciar sesión con Google");
+      setError("Error al iniciar sesion con Google");
     }
 
     setLoading(false);
@@ -76,17 +83,9 @@ const LoginView = () => {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
-        whileHover={{
-          boxShadow: `
-        0 10px 40px rgba(203, 91, 0, 0.6),
-        0 0 40px rgba(255, 152, 0, 0.5),
-        0 0 80px rgba(255, 119, 0, 0.9)
-      `
-        }}
       >
         <h1 style={styles.title}>Control de Asistencia</h1>
 
-        {/* ERROR */}
         <AnimatePresence>
           {error && (
             <motion.div
@@ -95,12 +94,11 @@ const LoginView = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
             >
-              ⚠ {error}
+              {error}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* GOOGLE */}
         {!showEmailForm && (
           <>
             <motion.button
@@ -119,54 +117,54 @@ const LoginView = () => {
             </motion.button>
 
             <button
+              type="button"
               style={styles.textButton}
               onClick={() => {
                 setShowEmailForm(true);
                 setError("");
               }}
             >
-              Iniciar sesión con correo
+              Iniciar sesion con correo
             </button>
 
             <button
+              type="button"
               style={styles.textButton}
-              onClick={() => navigate("/register")}
+              onClick={() => navigate(ROUTES.register)}
             >
               Registrarse
             </button>
           </>
         )}
 
-        {/* FORM EMAIL */}
         {showEmailForm && (
           <form onSubmit={handleLogin} style={styles.form}>
-            {/* EMAIL */}
             <div style={styles.inputWrapper}>
               <input
                 type="email"
-                placeholder="Correo electrónico"
+                placeholder="Correo electronico"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={styles.input}
               />
             </div>
 
-            {/* PASSWORD */}
             <div style={styles.inputWrapper}>
               <input
                 type={showPassword ? "text" : "password"}
-                placeholder="Contraseña"
+                placeholder="Contrasena"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={styles.input}
               />
 
-              <motion.span
-                style={styles.eyeIcon}
-                onClick={() => setShowPassword(!showPassword)}
+              <button
+                type="button"
+                style={styles.eyeButton}
+                onClick={() => setShowPassword((currentValue) => !currentValue)}
               >
-                {showPassword ? "🙈" : "👁"}
-              </motion.span>
+                {showPassword ? "Ocultar" : "Mostrar"}
+              </button>
             </div>
 
             <motion.button
@@ -176,7 +174,7 @@ const LoginView = () => {
               whileTap={{ scale: 0.95 }}
               disabled={loading}
             >
-              {loading ? "Ingresando..." : "Iniciar sesión"}
+              {loading ? "Ingresando..." : "Iniciar sesion"}
             </motion.button>
 
             <button
@@ -206,7 +204,6 @@ const styles = {
     alignItems: "center",
     fontFamily: "Poppins, sans-serif",
   },
-
   loginBox: {
     width: "90%",
     maxWidth: "380px",
@@ -214,37 +211,32 @@ const styles = {
     borderRadius: "20px",
     background: "rgba(0, 0, 0, 0.85)",
     color: "white",
-    boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
     textAlign: "center",
     boxSizing: "border-box",
     border: "1px solid #fb8c00",
     boxShadow: `
-    0 10px 40px rgba(0,0,0,0.6),
-    0 0 20px rgba(255, 123, 0, 0.64),
-    0 0 50px #ff6f00e0
-  `,
+      0 10px 40px rgba(0,0,0,0.6),
+      0 0 20px rgba(255, 123, 0, 0.64),
+      0 0 50px #ff6f00e0
+    `,
   },
-
   title: {
     marginBottom: "20px",
     fontWeight: "600",
   },
-
   form: {
     display: "flex",
     flexDirection: "column",
     gap: "14px",
     width: "100%",
   },
-
   inputWrapper: {
     position: "relative",
     width: "100%",
   },
-
   input: {
     width: "100%",
-    padding: "14px 45px 14px 14px",
+    padding: "14px 72px 14px 14px",
     borderRadius: "10px",
     border: "1px solid #333",
     background: "#111",
@@ -253,17 +245,17 @@ const styles = {
     fontSize: "14px",
     boxSizing: "border-box",
   },
-
-  eyeIcon: {
+  eyeButton: {
     position: "absolute",
     right: "12px",
     top: "50%",
     transform: "translateY(-50%)",
     cursor: "pointer",
-    fontSize: "18px",
-    opacity: 0.7,
+    fontSize: "12px",
+    color: "#90CAF9",
+    background: "transparent",
+    border: "none",
   },
-
   button: {
     padding: "14px",
     borderRadius: "10px",
@@ -274,7 +266,6 @@ const styles = {
     fontWeight: "600",
     fontSize: "15px",
   },
-
   googleButton: {
     width: "100%",
     padding: "12px",
@@ -289,7 +280,6 @@ const styles = {
     gap: "10px",
     marginBottom: "10px",
   },
-
   textButton: {
     background: "none",
     border: "none",
@@ -298,7 +288,6 @@ const styles = {
     marginTop: "10px",
     fontSize: "14px",
   },
-
   errorBox: {
     marginBottom: "15px",
     padding: "10px",
@@ -309,4 +298,4 @@ const styles = {
   },
 };
 
-export default LoginView; 
+export default LoginView;

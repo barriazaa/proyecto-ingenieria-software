@@ -1,60 +1,22 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  teacherCards,
+  teacherFunctions,
+  teacherStats,
+} from "../domain/teacherDashboardData";
 
-const Catedratico = () => {
+const TeacherDashboardView = () => {
   const navigate = useNavigate();
-
-  const cards = [
-    {
-      icon: "📊",
-      title: "Reportería",
-      description:
-        "Consulta informes, métricas y resumen general del sistema académico.",
-      button: "Ver reportería",
-      route: "/reporteria",
-    },
-    {
-      icon: "🎓",
-      title: "Estudiantes",
-      description:
-        "Visualiza el listado de estudiantes y administra su información.",
-      button: "Ver estudiantes",
-      route: "/estudiantes",
-    },
-    {
-      icon: "📚",
-      title: "Cursos",
-      description:
-        "Consulta, agrega y modifica los cursos asignados al catedrático.",
-      button: "Gestionar cursos",
-      route: "/cursos",
-    },
-  ];
-
-  const funciones = [
-    "Consultar reportería académica",
-    "Ver listado de estudiantes",
-    "Actualizar información de estudiantes",
-    "Consultar cursos asignados",
-    "Agregar nuevos cursos",
-    "Modificar cursos existentes",
-  ];
-
-  const stats = [
-    { value: "3", label: "Módulos activos" },
-    { value: "6", label: "Funciones disponibles" },
-    { value: "100%", label: "Panel operativo" },
-  ];
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
         <div style={styles.header}>
           <div>
-            <span style={styles.overline}>Panel académico</span>
-            <h1 style={styles.title}>Vista Catedrático</h1>
+            <span style={styles.overline}>Panel academico</span>
+            <h1 style={styles.title}>Vista Maestro</h1>
             <p style={styles.subtitle}>
-              Panel principal para la gestión académica del catedrático.
+              Panel principal para la gestion academica del maestro.
             </p>
           </div>
 
@@ -65,8 +27,8 @@ const Catedratico = () => {
         </div>
 
         <div style={styles.statsGrid}>
-          {stats.map((item, index) => (
-            <div key={index} style={styles.statTopCard}>
+          {teacherStats.map((item) => (
+            <div key={item.label} style={styles.statTopCard}>
               <div style={styles.statTopValue}>{item.value}</div>
               <div style={styles.statTopLabel}>{item.label}</div>
             </div>
@@ -74,38 +36,12 @@ const Catedratico = () => {
         </div>
 
         <div style={styles.cardsGrid}>
-          {cards.map((card, index) => (
-            <div
-              key={index}
-              style={styles.card}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-6px)";
-                e.currentTarget.style.boxShadow =
-                  "0 22px 45px rgba(15, 23, 42, 0.14)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow =
-                  "0 12px 30px rgba(15, 23, 42, 0.08)";
-              }}
-            >
+          {teacherCards.map((card) => (
+            <div key={card.title} style={styles.card}>
               <div style={styles.cardIcon}>{card.icon}</div>
               <h2 style={styles.cardTitle}>{card.title}</h2>
               <p style={styles.cardText}>{card.description}</p>
-              <button
-                style={styles.primaryButton}
-                onClick={() => navigate(card.route)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 12px 24px rgba(37, 99, 235, 0.28)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow =
-                    "0 10px 20px rgba(37, 99, 235, 0.18)";
-                }}
-              >
+              <button style={styles.primaryButton} onClick={() => navigate(card.route)}>
                 {card.button}
               </button>
             </div>
@@ -116,8 +52,8 @@ const Catedratico = () => {
           <div style={styles.infoCard}>
             <h3 style={styles.sectionTitle}>Funciones disponibles</h3>
             <ul style={styles.list}>
-              {funciones.map((item, index) => (
-                <li key={index} style={styles.listItem}>
+              {teacherFunctions.map((item) => (
+                <li key={item} style={styles.listItem}>
                   <span style={styles.listBullet}></span>
                   {item}
                 </li>
@@ -128,16 +64,14 @@ const Catedratico = () => {
           <div style={styles.summaryCard}>
             <h3 style={styles.sectionTitleDark}>Resumen general</h3>
             <p style={styles.summaryText}>
-              Desde este panel podrás administrar los módulos principales del
-              sistema. La vista está diseñada para centralizar la navegación y
-              permitir un acceso rápido, claro y ordenado a las funciones
-              académicas más importantes.
+              Desde este panel puedes administrar los modulos principales del sistema
+              con una estructura organizada por dominio y una navegacion centralizada.
             </p>
 
             <div style={styles.summaryStats}>
               <div style={styles.statBox}>
                 <span style={styles.statNumber}>3</span>
-                <span style={styles.statLabel}>Módulos</span>
+                <span style={styles.statLabel}>Modulos</span>
               </div>
               <div style={styles.statBox}>
                 <span style={styles.statNumber}>6</span>
@@ -252,7 +186,6 @@ const styles = {
     padding: "28px",
     boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
     border: "1px solid #e2e8f0",
-    transition: "all 0.3s ease",
   },
   cardIcon: {
     width: "62px",
@@ -260,10 +193,12 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "30px",
+    fontSize: "18px",
+    fontWeight: "800",
     borderRadius: "18px",
     background: "linear-gradient(135deg, #eff6ff, #dbeafe)",
     marginBottom: "18px",
+    color: "#1d4ed8",
   },
   cardTitle: {
     margin: 0,
@@ -287,8 +222,6 @@ const styles = {
     fontSize: "14px",
     fontWeight: "700",
     cursor: "pointer",
-    transition: "all 0.25s ease",
-    boxShadow: "0 10px 20px rgba(37, 99, 235, 0.18)",
   },
   bottomSection: {
     display: "grid",
@@ -376,4 +309,4 @@ const styles = {
   },
 };
 
-export default Catedratico;
+export default TeacherDashboardView;

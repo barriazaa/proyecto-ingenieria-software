@@ -1,10 +1,12 @@
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-
-import LoginView from "../modules/auth/ui/LoginView";
-import RegisterView from "../modules/auth/ui/RegisterView";
-import Catedratico from "../pages/Catedratico";
-import Cursos from "../pages/Cursos";
+import LoginView from "../modules/auth-registro/ui/LoginView";
+import RegisterView from "../modules/auth-registro/ui/RegisterView";
+import StudentView from "../modules/alumno/ui/StudentView";
+import TeacherDashboardView from "../modules/maestro/ui/TeacherDashboardView";
+import CoursesView from "../modules/maestro/ui/CoursesView";
+import ReportView from "../modules/reporte/ui/ReportView";
+import { ROUTES } from "../shared/utils/routePaths";
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -12,11 +14,13 @@ const AnimatedRoutes = () => {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<LoginView />} />
-        <Route path="/register" element={<RegisterView />} />
-        <Route path="/home" element={<Catedratico />} />
-        <Route path="/catedratico" element={<Catedratico />} />
-        <Route path="/cursos" element={<Cursos />} />
+        <Route path={ROUTES.login} element={<LoginView />} />
+        <Route path={ROUTES.register} element={<RegisterView />} />
+        <Route path={ROUTES.home} element={<TeacherDashboardView />} />
+        <Route path={ROUTES.teacher} element={<TeacherDashboardView />} />
+        <Route path={ROUTES.courses} element={<CoursesView />} />
+        <Route path={ROUTES.students} element={<StudentView />} />
+        <Route path={ROUTES.reports} element={<ReportView />} />
       </Routes>
     </AnimatePresence>
   );
