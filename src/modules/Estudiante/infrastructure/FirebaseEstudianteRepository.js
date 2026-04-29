@@ -91,6 +91,24 @@ class FirebaseEstudianteRepository {
     return getDocumentData(LEGACY_COURSES_COLLECTION, courseId);
   }
 
+  // --- FUNCIÓN SINCRONIZADA CON TU BASE DE DATOS (requiereGPS) ---
+  async getCourseRequirements(courseId) {
+    try {
+      const course = await this.getCourseById(courseId);
+      if (!course) return { requiereGPS: false };
+      
+      return {
+        // Usamos el nombre exacto de tu registro de Firebase: requiereGPS
+        requiereGPS: course.requiereGPS ?? false,
+        nombre: course.nombre || "Curso",
+        codigo: course.codigo || ""
+      };
+    } catch (error) {
+      console.error("Error en getCourseRequirements:", error);
+      return { requiereGPS: false };
+    }
+  }
+
   // Inscribir alumno automáticamente (por defecto en la colección primaria)
   async enrollStudentInCourse(studentUid, courseId) {
     const ref = doc(db, PRIMARY_USERS_COLLECTION, studentUid);

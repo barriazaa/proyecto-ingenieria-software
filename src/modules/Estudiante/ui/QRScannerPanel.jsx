@@ -6,29 +6,29 @@ import EstudianteService from "../application/estudianteService";
 const QRScannerPanel = () => {
   const [status, setStatus] = useState({ msg: "", type: "" });
   const [loading, setLoading] = useState(false);
-  const [userCoords, setUserCoords] = useState(null); 
+  const [userCoords, setUserCoords] = useState(null);
+  
+  // Estados para el Zoom
+  const [zoomSettings, setZoomSettings] = useState({ min: 1, max: 1, step: 0.1, current: 1 });
+  const [hasZoom, setHasZoom] = useState(false);
+  
   const qrInstanceRef = useRef(null);
 
-  // 1. Función para obtener la ubicación (Ahora se activa SOLO si el curso lo pide)
   const requestLocation = () => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         setStatus({ msg: "Tu navegador no soporta GPS.", type: "error" });
         return reject(new Error("No soporta GPS"));
       }
-
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const coords = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          };
+          const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
           setUserCoords(coords);
           resolve(coords);
         },
         (geoErr) => {
-          let errorMsg = "Se requiere GPS para marcar asistencia en esta clase.";
-          if (geoErr.code === 1) errorMsg = "Debes permitir el GPS para esta clase específica.";
+          let errorMsg = "Se requiere GPS para marcar asistencia.";
+          if (geoErr.code === 1) errorMsg = "Debes permitir el GPS.";
           setStatus({ msg: errorMsg, type: "error" });
           reject(new Error(errorMsg));
         },
@@ -39,34 +39,48 @@ const QRScannerPanel = () => {
 
   const onScanSuccess = async (decodedText) => {
     if (loading) return;
-
     try {
       setLoading(true);
       const data = JSON.parse(decodedText);
       const courseId = data.i;
 
-      // VALIDACIÓN NUEVA: Revisar si el curso requiere GPS antes de pedirlo
-      setStatus({ msg: "Validando requisitos de la clase...", type: "info" });
-      const { requiereGPS } = await EstudianteService.getCourseRequirements(courseId);
+      setStatus({ msg: "Validando requisitos...", type: "info" });
+      
+      // Llamada al Service
+      const requirements = await EstudianteService.getCourseRequirements(courseId);
+      
+      // CORRECCIÓN: Usamos requiereGPS que es el nombre real en tu DB
+      const requiereGPS = requirements.requiereGPS;
 
       let currentCoords = userCoords;
 
-      // Si la clase requiere GPS y no lo tenemos, lo pedimos en este momento
       if (requiereGPS && !currentCoords) {
-        setStatus({ msg: "Esta clase requiere validación de ubicación. Activando GPS...", type: "info" });
+        setStatus({ msg: "Activando GPS obligatorio...", type: "info" });
         currentCoords = await requestLocation();
       }
 
       if (qrInstanceRef.current) await qrInstanceRef.current.stop();
       
-      // Procesamos con coordenadas (si fueron requeridas) o sin ellas (si no)
       const res = await EstudianteService.processAttendanceScan(data, auth.currentUser, currentCoords);
-      
       setStatus({ msg: res.message, type: "success" });
     } catch (err) {
       setStatus({ msg: err.message || "Error al procesar", type: "error" });
       setLoading(false);
       setTimeout(() => startCamera(), 3000);
+    }
+  };
+
+  const handleZoomChange = async (e) => {
+    const zoomValue = parseFloat(e.target.value);
+    setZoomSettings(prev => ({ ...prev, current: zoomValue }));
+    if (qrInstanceRef.current) {
+      try {
+        await qrInstanceRef.current.applyVideoConstraints({
+          advanced: [{ zoom: zoomValue }]
+        });
+      } catch (err) {
+        console.error("Error aplicando zoom:", err);
+      }
     }
   };
 
@@ -81,21 +95,32 @@ const QRScannerPanel = () => {
     try {
       await html5QrCode.start(
         { facingMode: "environment" }, 
-        { fps: 15, qrbox: { width: 180, height: 180 } }, 
+        { fps: 20, qrbox: { width: 220, height: 220 } }, 
         onScanSuccess
       );
+
+      // Lógica de Zoom
+      const videoTrack = html5QrCode.getRunningTrack();
+      const capabilities = videoTrack.getCapabilities();
+      
+      if (capabilities.zoom) {
+        setHasZoom(true);
+        setZoomSettings({
+          min: capabilities.zoom.min,
+          max: capabilities.zoom.max,
+          step: capabilities.zoom.step || 0.1,
+          current: capabilities.zoom.min
+        });
+      }
     } catch (error) {
-      console.error(error);
-      setStatus({ msg: "Revisa los permisos de cámara.", type: "error" });
+      setStatus({ msg: "Error de cámara.", type: "error" });
     }
   };
 
   useEffect(() => {
-    // CAMBIO PODEROSO: Solo arranca la cámara. El GPS se queda apagado.
     startCamera();
-
     return () => {
-      if (qrInstanceRef.current && qrInstanceRef.current.isScanning) {
+      if (qrInstanceRef.current?.isScanning) {
         qrInstanceRef.current.stop().catch(() => {});
       }
     };
@@ -110,29 +135,53 @@ const QRScannerPanel = () => {
 
       {status.msg && (
         <div style={{
-          padding: "10px", borderRadius: "8px", marginBottom: "15px", fontSize: "13px", fontWeight: "bold", textAlign: "center",
+          padding: "12px", borderRadius: "12px", marginBottom: "15px", fontSize: "13px", fontWeight: "bold", textAlign: "center",
           backgroundColor: status.type === "success" ? "#dcfce7" : status.type === "error" ? "#fee2e2" : "#dbeafe",
-          color: status.type === "success" ? "#166534" : status.type === "error" ? "#991b1b" : "#1e40af"
+          color: status.type === "success" ? "#166534" : status.type === "error" ? "#991b1b" : "#1e40af",
+          border: `1px solid ${status.type === "success" ? "#86efac" : status.type === "error" ? "#fecaca" : "#bfdbfe"}`
         }}>
           {status.msg}
         </div>
       )}
 
+      {/* CONTENEDOR DE 300px */}
       <div style={{
-        width: "220px", height: "220px", margin: "0 auto", borderRadius: "16px",
-        overflow: "hidden", background: "#000", border: "3px solid #e2e8f0"
+        width: "300px", height: "300px", margin: "0 auto", borderRadius: "24px",
+        overflow: "hidden", background: "#000", border: "4px solid #f1f5f9",
+        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)", position: "relative"
       }}>
         <div id="student-qr-reader" style={{ width: "100%", height: "100%" }}></div>
       </div>
 
+      {/* CONTROL DE ZOOM */}
+      {hasZoom && !loading && (
+        <div style={{ width: "250px", margin: "20px auto 0", textAlign: "center" }}>
+          <label style={{ display: "block", fontSize: "12px", color: "#64748b", marginBottom: "5px", fontWeight: "600" }}>
+            Zoom: {zoomSettings.current.toFixed(1)}x
+          </label>
+          <input
+            type="range"
+            min={zoomSettings.min}
+            max={zoomSettings.max}
+            step={zoomSettings.step}
+            value={zoomSettings.current}
+            onChange={handleZoomChange}
+            style={{ width: "100%", cursor: "pointer", accentColor: "#2563eb" }}
+          />
+        </div>
+      )}
+
       {loading ? (
-        <p style={{ color: "#2563eb", fontWeight: "bold", marginTop: "15px", textAlign: "center", fontSize: "14px" }}>
-          Procesando asistencia...
-        </p>
+        <div style={{ marginTop: "20px", textAlign: "center" }}>
+          <div className="spinner" style={{ margin: "0 auto 10px" }}></div>
+          <p style={{ color: "#2563eb", fontWeight: "bold", fontSize: "14px" }}>Procesando...</p>
+        </div>
       ) : (
-        <div style={{ marginTop: "15px", textAlign: "center" }}>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>Apunta al código QR del docente</p>
-          <p style={{ color: "#94a3b8", fontSize: "11px", marginTop: "5px" }}>La ubicación solo se pedirá si el curso lo requiere.</p>
+        <div style={{ marginTop: "20px", textAlign: "center" }}>
+          <p style={{ color: "#475569", fontSize: "14px", fontWeight: "500" }}>Enfoca el código QR</p>
+          <p style={{ color: "#94a3b8", fontSize: "11px", marginTop: "4px" }}>
+            {hasZoom ? "Usa la barra para acercar la imagen" : "La ubicación es opcional según el curso"}
+          </p>
         </div>
       )}
     </section>

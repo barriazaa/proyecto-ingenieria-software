@@ -5,8 +5,6 @@ import {
 } from "../domain/estudianteRules";
 import FirebaseEstudianteRepository from "../infrastructure/FirebaseEstudianteRepository";
 import AttendanceReportService from "../reportes/application/attendanceReportService";
-
-// Importamos la herramienta matemática desde tu nueva carpeta
 import { calcularDistanciaMetros } from "../utils/geoUtils";
 
 class EstudianteService {
@@ -14,7 +12,7 @@ class EstudianteService {
     const studentProfile = await FirebaseEstudianteRepository.getStudentProfile(uid);
 
     if (!studentProfile) {
-      throw new Error("No se encontro informacion del estudiante.");
+      throw new Error("No se encontró información del estudiante.");
     }
 
     if (!isStudentRole(studentProfile.rol)) {
@@ -44,26 +42,35 @@ class EstudianteService {
     return AttendanceReportService.getCourseAttendanceSummary(course, attendances, range);
   }
 
-  // --- MÉTODO PARA EL CÓDIGO QR CON GEOFENCE ---
+  // --- MÉTODO PARA EL CÓDIGO QR CON GEOFENCE OPCIONAL ---
   async processAttendanceScan(scannedData, currentUser, coordsAlumno) {
     try {
       const { i: courseId, t: scannedToken } = scannedData;
       const hoy = new Date().toISOString().split('T')[0];
 
-      // 1. Validar Cerco Virtual (Geofencing)
-      const sedeConfig = await FirebaseEstudianteRepository.getSedeConfig();
-      const distancia = calcularDistanciaMetros(
-        coordsAlumno.lat,
-        coordsAlumno.lng,
-        sedeConfig.ubicacion.latitude,
-        sedeConfig.ubicacion.longitude
-      );
+      // 1. Obtener Requisitos del Curso (Sincronizado con Firebase)
+      const requirements = await FirebaseEstudianteRepository.getCourseRequirements(courseId);
 
-      if (distancia > sedeConfig.radioMetros) {
-        throw new Error(`Estás fuera del rango permitido (${Math.round(distancia)}m). Acércate más al colegio.`);
+      // 2. Validar Cerco Virtual SOLO si el curso lo requiere (requiereGPS)
+      if (requirements.requiereGPS) {
+        if (!coordsAlumno) {
+          throw new Error("Este curso requiere ubicación obligatoria. Por favor, activa tu GPS.");
+        }
+
+        const sedeConfig = await FirebaseEstudianteRepository.getSedeConfig();
+        const distancia = calcularDistanciaMetros(
+          coordsAlumno.lat,
+          coordsAlumno.lng,
+          sedeConfig.ubicacion.latitude,
+          sedeConfig.ubicacion.longitude
+        );
+
+        if (distancia > sedeConfig.radioMetros) {
+          throw new Error(`Fuera de rango (${Math.round(distancia)}m). Acércate más a la sede.`);
+        }
       }
 
-      // 2. Validar si ya marcó asistencia hoy
+      // 3. Validar si ya marcó asistencia hoy
       const yaRegistroHoy = await FirebaseEstudianteRepository.checkDuplicateAttendance(
         currentUser.uid,
         courseId,
@@ -74,7 +81,7 @@ class EstudianteService {
         throw new Error("Ya registraste tu asistencia para este curso el día de hoy.");
       }
 
-      // 3. Obtener datos del curso y del estudiante
+      // 4. Obtener datos para el marcaje final
       const [courseData, studentProfile] = await Promise.all([
         FirebaseEstudianteRepository.getCourseById(courseId),
         FirebaseEstudianteRepository.getStudentProfile(currentUser.uid)
@@ -82,19 +89,19 @@ class EstudianteService {
 
       if (!courseData) throw new Error("Curso no encontrado.");
 
-      // 4. Validar que el token del QR sea el correcto/actual
+      // 5. Validar Token QR
       if (courseData.currentQrToken !== scannedToken) {
-        throw new Error("El código QR ha expirado o no es válido. Escanea el código actual.");
+        throw new Error("El código QR ha expirado. Pide al docente generar uno nuevo.");
       }
 
       const student = normalizeStudent(studentProfile, currentUser.uid);
 
-      // 5. Auto-inscribir si es necesario
+      // 6. Auto-inscripción (Si el alumno escanea y no está en el curso, lo metemos)
       if (!student.cursosAsignados.includes(courseId)) {
         await FirebaseEstudianteRepository.enrollStudentInCourse(currentUser.uid, courseId);
       }
 
-      // 6. Guardar el marcaje en la colección de asistencias
+      // 7. Guardar marcaje en la nueva colección agrupada 'asistencias_detalle'
       await FirebaseEstudianteRepository.saveAttendanceReport({
         estudianteUid: student.uid,
         estudianteNombre: student.nombre,
@@ -108,9 +115,10 @@ class EstudianteService {
 
       return { 
         success: true, 
-        message: `Asistencia validada en sede y marcada en ${courseData.nombre}` 
+        message: `Asistencia marcada correctamente en ${courseData.nombre}` 
       };
     } catch (error) {
+      console.error("Error en Service Scan:", error.message);
       throw error;
     }
   }
