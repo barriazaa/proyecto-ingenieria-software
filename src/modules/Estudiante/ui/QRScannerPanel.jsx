@@ -46,10 +46,10 @@ const QRScannerPanel = () => {
 
       setStatus({ msg: "Validando requisitos...", type: "info" });
       
-      // Llamada al Service
+      // Llamada al Service (Asegúrate de haber agregado el puente en EstudianteService.js)
       const requirements = await EstudianteService.getCourseRequirements(courseId);
       
-      // CORRECCIÓN: Usamos requiereGPS que es el nombre real en tu DB
+      // Usamos requiereGPS que es el nombre real en tu DB
       const requiereGPS = requirements.requiereGPS;
 
       let currentCoords = userCoords;
@@ -66,6 +66,7 @@ const QRScannerPanel = () => {
     } catch (err) {
       setStatus({ msg: err.message || "Error al procesar", type: "error" });
       setLoading(false);
+      // Reiniciamos la cámara después de 3 segundos para que pueda volver a intentar
       setTimeout(() => startCamera(), 3000);
     }
   };
@@ -95,7 +96,18 @@ const QRScannerPanel = () => {
     try {
       await html5QrCode.start(
         { facingMode: "environment" }, 
-        { fps: 20, qrbox: { width: 220, height: 220 } }, 
+        { 
+          fps: 20, 
+          // HACEMOS EL CUADRO DINÁMICO: 75% del ancho disponible de la pantalla
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+            return {
+              width: Math.floor(minEdgeSize * 0.75),
+              height: Math.floor(minEdgeSize * 0.75)
+            };
+          },
+          aspectRatio: 1.0 // Fuerza a que la cámara se vea cuadrada
+        }, 
         onScanSuccess
       );
 
@@ -113,7 +125,7 @@ const QRScannerPanel = () => {
         });
       }
     } catch (error) {
-      setStatus({ msg: "Error de cámara.", type: "error" });
+      setStatus({ msg: "Error de cámara. Verifica los permisos.", type: "error" });
     }
   };
 
@@ -144,18 +156,25 @@ const QRScannerPanel = () => {
         </div>
       )}
 
-      {/* CONTENEDOR DE 300px */}
+      {/* CONTENEDOR RESPONSIVO: Ocupa el 100% hasta un máximo de 380px */}
       <div style={{
-        width: "300px", height: "300px", margin: "0 auto", borderRadius: "24px",
-        overflow: "hidden", background: "#000", border: "4px solid #f1f5f9",
-        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)", position: "relative"
+        width: "100%", 
+        maxWidth: "380px", // Más grande que los 300px anteriores
+        aspectRatio: "1 / 1", // Mantiene el contenedor perfectamente cuadrado
+        margin: "0 auto", 
+        borderRadius: "24px",
+        overflow: "hidden", 
+        background: "#000", 
+        border: "4px solid #f1f5f9",
+        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)", 
+        position: "relative"
       }}>
         <div id="student-qr-reader" style={{ width: "100%", height: "100%" }}></div>
       </div>
 
       {/* CONTROL DE ZOOM */}
       {hasZoom && !loading && (
-        <div style={{ width: "250px", margin: "20px auto 0", textAlign: "center" }}>
+        <div style={{ width: "100%", maxWidth: "280px", margin: "20px auto 0", textAlign: "center" }}>
           <label style={{ display: "block", fontSize: "12px", color: "#64748b", marginBottom: "5px", fontWeight: "600" }}>
             Zoom: {zoomSettings.current.toFixed(1)}x
           </label>
