@@ -161,15 +161,28 @@
   border: 1px solid #e2e8f0;
 }
 
-/* --- 6. EL ESCÁNER (FIX CUADRO NEGRO) --- */
+/* --- 6. EL ESCÁNER (FIX CUADRO NEGRO Y TAMAÑO) --- */
 #student-qr-reader {
   width: 100% !important;
+  height: 100% !important;
   border: none !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background: #000;
 }
 
 #student-qr-reader video {
-  border-radius: 20px !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 18px !important;
   object-fit: cover !important;
+}
+
+#student-qr-reader > div {
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* --- RESPONSIVO --- */

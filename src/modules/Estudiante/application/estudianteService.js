@@ -42,6 +42,13 @@ class EstudianteService {
     return AttendanceReportService.getCourseAttendanceSummary(course, attendances, range);
   }
 
+  // =====================================================================
+  // AQUÍ ESTÁ LA SOLUCIÓN AL ERROR: El puente para los requisitos del curso
+  // =====================================================================
+  async getCourseRequirements(courseId) {
+    return await FirebaseEstudianteRepository.getCourseRequirements(courseId);
+  }
+
   // --- MÉTODO PARA EL CÓDIGO QR CON GEOFENCE OPCIONAL ---
   async processAttendanceScan(scannedData, currentUser, coordsAlumno) {
     try {
