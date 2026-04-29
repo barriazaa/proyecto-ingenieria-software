@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCourses } from "../../cursos/application/courseService";
+import CatedraticoService from "../application/CatedraticoService";
 
 const getStudentFullName = (student) => student?.nombre || "Sin nombre";
 
@@ -180,38 +181,58 @@ const EstudiantesTable = ({ estudiantes }) => {
     );
   };
 
-  const handleAssignCourse = () => {
+  const handleAssignCourse = async () => {
     if (!selectedStudent || !selectedCourseToAssign) {
       return;
     }
 
-    setCourseAssignments((currentAssignments) => {
-      const studentAssignments = currentAssignments[selectedStudent.id] || [];
+    const studentAssignments = courseAssignments[selectedStudent.id] || [];
 
-      if (studentAssignments.includes(selectedCourseToAssign)) {
-        return currentAssignments;
-      }
+    if (studentAssignments.includes(selectedCourseToAssign)) {
+      return;
+    }
 
-      return {
-        ...currentAssignments,
-        [selectedStudent.id]: [...studentAssignments, selectedCourseToAssign],
-      };
-    });
+    const updatedIds = [...studentAssignments, selectedCourseToAssign];
 
+    setCourseAssignments((current) => ({
+      ...current,
+      [selectedStudent.id]: updatedIds,
+    }));
     setSelectedCourseToAssign("");
+
+    try {
+      await CatedraticoService.updateStudentCourses(selectedStudent.id, updatedIds);
+    } catch (err) {
+      console.error("Error al guardar asignacion:", err);
+      setCourseAssignments((current) => ({
+        ...current,
+        [selectedStudent.id]: studentAssignments,
+      }));
+    }
   };
 
-  const handleRemoveCourse = (courseId) => {
+  const handleRemoveCourse = async (courseId) => {
     if (!selectedStudent) {
       return;
     }
 
-    setCourseAssignments((currentAssignments) => ({
-      ...currentAssignments,
-      [selectedStudent.id]: (currentAssignments[selectedStudent.id] || []).filter(
-        (assignedId) => assignedId !== courseId
-      ),
+    const studentAssignments = courseAssignments[selectedStudent.id] || [];
+    const updatedIds = studentAssignments.filter((id) => id !== courseId);
+
+    setCourseAssignments((current) => ({
+      ...current,
+      [selectedStudent.id]: updatedIds,
     }));
+
+    try {
+      await CatedraticoService.updateStudentCourses(selectedStudent.id, updatedIds);
+    } catch (err) {
+      console.error("Error al quitar curso:", err);
+      setCourseAssignments((current) => ({
+        ...current,
+        [selectedStudent.id]: studentAssignments,
+      }));
+    }
   };
 
   if (studentsState.length === 0) {

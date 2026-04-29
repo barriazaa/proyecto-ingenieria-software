@@ -2,7 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { loginWithEmail, loginWithGoogle } from "../application/AuthService";
+import { AUTH_ROLES } from "../domain/authRules";
 import { ROUTES } from "../../../shared/utils/routePaths";
+
+const getRouteForRole = (rol) =>
+  rol === AUTH_ROLES.teacher ? ROUTES.home : ROUTES.students;
 
 const getLoginErrorMessage = (error) => {
   if (error.message === "Completa todos los campos") {
@@ -44,8 +48,8 @@ const LoginView = () => {
       setLoading(true);
       setError("");
 
-      await loginWithEmail(email, password);
-      navigate(ROUTES.home);
+      const user = await loginWithEmail(email, password);
+      navigate(getRouteForRole(user.rol));
     } catch (err) {
       console.error(err);
       setError(getLoginErrorMessage(err));
@@ -67,7 +71,7 @@ const LoginView = () => {
         return;
       }
 
-      navigate(ROUTES.home);
+      navigate(getRouteForRole(result.user.rol));
     } catch (err) {
       console.error(err);
       setError("Error al iniciar sesion con Google");

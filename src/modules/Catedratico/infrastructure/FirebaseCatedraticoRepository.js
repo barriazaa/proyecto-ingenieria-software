@@ -1,5 +1,5 @@
 import { db } from "../../../firebase/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDocs, query, updateDoc, where } from "firebase/firestore";
 
 const PRIMARY_USERS_COLLECTION = "users";
 const LEGACY_USERS_COLLECTION = "usuarios";
@@ -63,6 +63,11 @@ class FirebaseCatedraticoRepository {
 
     const legacyUsers = await getAllUsers();
     return legacyUsers.filter((user) => user.rol === "estudiante");
+  }
+
+  async updateStudentCourses(studentId, courseIds) {
+    const studentRef = doc(db, PRIMARY_USERS_COLLECTION, studentId);
+    await updateDoc(studentRef, { cursosAsignados: courseIds });
   }
 }
 

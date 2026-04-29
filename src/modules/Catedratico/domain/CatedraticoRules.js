@@ -4,6 +4,7 @@ export const createCatedraticoCards = (reporteria) => [
   {
     id: "estudiantes",
     title: "Estudiantes",
+    value: reporteria.totalEstudiantes,
     description: "Consulta el listado de estudiantes registrados en Firebase.",
     accent: "#22c55e",
   },
@@ -11,6 +12,7 @@ export const createCatedraticoCards = (reporteria) => [
   {
     id: "cursos",
     title: "Cursos",
+    value: reporteria.totalCursos,
     description: "Gestiona los cursos desde su modulo independiente y conectado a Firestore.",
     actionLabel: "Ir a cursos",
     route: ROUTES.courses,
@@ -20,6 +22,7 @@ export const createCatedraticoCards = (reporteria) => [
   {
     id: "reporteria",
     title: "Reporteria",
+    value: reporteria.cursosActivos,
     description: "Visualiza un resumen general de la actividad academica.",
     accent: "#f97316",
   },
