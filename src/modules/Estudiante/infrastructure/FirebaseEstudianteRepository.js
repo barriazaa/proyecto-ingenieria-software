@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, updateDoc, setDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../firebase/firebase";
 import FirebaseAttendanceReportRepository from "../reportes/infrastructure/FirebaseAttendanceReportRepository";
 
@@ -51,6 +51,7 @@ const getCoursesFromCollections = async () => {
 };
 
 class FirebaseEstudianteRepository {
+  // --- MÉTODOS ORIGINALES DE LECTURA ---
   async getStudentProfile(uid) {
     return getStudentFromCollections(uid);
   }
@@ -67,6 +68,68 @@ class FirebaseEstudianteRepository {
 
   async getStudentAttendances(student) {
     return FirebaseAttendanceReportRepository.getStudentAttendances(student);
+  }
+
+  // --- NUEVOS MÉTODOS PARA ESCÁNER Y REPORTERÍA (AGRUPADOS) ---
+
+  // Obtener la configuración del cerco virtual (Geofencing)
+  async getSedeConfig(sedeId = "sede_caigua") {
+    const docRef = doc(db, "sedes", sedeId);
+    const snap = await getDoc(docRef);
+    
+    if (!snap.exists()) {
+      throw new Error("No se encontró la configuración de la sede en la base de datos.");
+    }
+    
+    return snap.data();
+  }
+
+  // Obtener curso específico validando legacy/primary
+  async getCourseById(courseId) {
+    const primaryCourse = await getDocumentData(PRIMARY_COURSES_COLLECTION, courseId);
+    if (primaryCourse) return primaryCourse;
+    return getDocumentData(LEGACY_COURSES_COLLECTION, courseId);
+  }
+
+  // Inscribir alumno automáticamente (por defecto en la colección primaria)
+  async enrollStudentInCourse(studentUid, courseId) {
+    const ref = doc(db, PRIMARY_USERS_COLLECTION, studentUid);
+    await updateDoc(ref, {
+      cursosAsignados: arrayUnion(courseId)
+    });
+  }
+
+  // Validación de duplicados para el mismo día usando el Documento Agrupado
+  async checkDuplicateAttendance(studentUid, courseId, dateStr) {
+    // Buscamos el documento exacto: "IDcurso_IDalumno"
+    const docId = `${courseId}_${studentUid}`; 
+    const docRef = doc(db, "asistencias_detalle", docId);
+    
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      // Si el arreglo fechasAsistencia existe y ya tiene la fecha de hoy, devuelve true
+      return data.fechasAsistencia && data.fechasAsistencia.includes(dateStr);
+    }
+    return false;
+  }
+
+  // Guardar en la nueva colección agrupando por alumno y clase
+  async saveAttendanceReport(reportData) {
+    const { cursoId, estudianteUid, fechaSimple, ...rest } = reportData;
+    
+    // Creamos el ID compuesto para agrupar todo lo de este alumno en esta clase
+    const docId = `${cursoId}_${estudianteUid}`; 
+    const docRef = doc(db, "asistencias_detalle", docId);
+
+    // merge: true permite actualizar el arreglo sin borrar lo que ya existía
+    await setDoc(docRef, {
+      cursoId,
+      estudianteUid,
+      ...rest, 
+      fechasAsistencia: arrayUnion(fechaSimple), // Mete la nueva fecha a la lista
+      ultimaActualizacion: serverTimestamp()
+    }, { merge: true });
   }
 }
 

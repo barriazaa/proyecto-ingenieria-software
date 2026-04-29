@@ -24,7 +24,10 @@
     "vite": "^8.0.0-beta.13"
   },
   "dependencies": {
+    "firebase": "^12.12.1",
     "framer-motion": "^12.38.0",
+    "html5-qrcode": "^2.3.8",
+    "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.30.3"

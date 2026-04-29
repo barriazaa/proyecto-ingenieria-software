@@ -54,6 +54,15 @@ class FirebaseCoursesRepository {
     const targetId = typeof courseId === "object" ? courseId.id : courseId;
     await deleteDoc(doc(db, targetCollection, targetId));
   }
+
+  // Integración de actualización de token y hora de creación
+  async updateCourseToken(courseId, targetCollection, token, timestamp) {
+    const col = targetCollection || PRIMARY_COLLECTION;
+    await updateDoc(doc(db, col, courseId), { 
+      currentQrToken: token,
+      tokenCreatedAt: timestamp 
+    });
+  }
 }
 
 export default new FirebaseCoursesRepository();

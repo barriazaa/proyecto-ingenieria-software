@@ -40,3 +40,8 @@ export const toggleCourseStatus = async (course) => {
   });
   return coursesRepository.updateCourse(updatedCourse);
 };
+
+// Nueva función integrada para el manejo del token dinámico y hora de creación
+export const updateCourseToken = async (course, token, timestamp) => {
+  return coursesRepository.updateCourseToken(course.id, course._collection, token, timestamp);
+};

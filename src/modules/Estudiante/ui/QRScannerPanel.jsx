@@ -1,51 +1,96 @@
 import { useEffect, useRef, useState } from "react";
+import { Html5Qrcode } from "html5-qrcode";
+import { auth } from "../../../firebase/firebase";
+import EstudianteService from "../application/estudianteService";
 
 const QRScannerPanel = () => {
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [cameraError, setCameraError] = useState("");
+  const [status, setStatus] = useState({ msg: "", type: "" });
+  const [loading, setLoading] = useState(false);
+  const [userCoords, setUserCoords] = useState(null); // Guardamos la ubicación aquí
+  const qrInstanceRef = useRef(null);
 
-  const stopCamera = () => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
+  // 1. Función para obtener la ubicación (se llama al inicio)
+  const requestLocation = () => {
+    if (!navigator.geolocation) {
+      setStatus({ msg: "Tu navegador no soporta GPS.", type: "error" });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserCoords({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+        setStatus({ msg: "", type: "" }); // Limpiamos errores si acepta
+      },
+      (geoErr) => {
+        let errorMsg = "Se requiere GPS para marcar asistencia.";
+        if (geoErr.code === 1) errorMsg = "Debes permitir el GPS para usar esta función.";
+        setStatus({ msg: errorMsg, type: "error" });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const onScanSuccess = async (decodedText) => {
+    if (loading) return;
+
+    // Si al escanear aún no tenemos coordenadas, reintentamos pedirlas
+    if (!userCoords) {
+      setStatus({ msg: "Esperando señal de GPS... intenta de nuevo.", type: "error" });
+      requestLocation();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      if (qrInstanceRef.current) await qrInstanceRef.current.stop();
+
+      const data = JSON.parse(decodedText);
+      
+      // Procesamos con las coordenadas que ya teníamos guardadas
+      const res = await EstudianteService.processAttendanceScan(data, auth.currentUser, userCoords);
+      
+      setStatus({ msg: res.message, type: "success" });
+    } catch (err) {
+      setStatus({ msg: err.message || "Error al procesar", type: "error" });
+      setLoading(false);
+      setTimeout(() => startCamera(), 3000);
+    }
+  };
+
+  const startCamera = async () => {
+    if (qrInstanceRef.current && qrInstanceRef.current.isScanning) {
+      await qrInstanceRef.current.stop();
+    }
+
+    const html5QrCode = new Html5Qrcode("student-qr-reader");
+    qrInstanceRef.current = html5QrCode;
+
+    try {
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 15, qrbox: { width: 180, height: 180 } },
+        onScanSuccess
+      );
+    } catch (error) {
+      console.error(error);
+      setStatus({ msg: "Revisa los permisos de cámara.", type: "error" });
+    }
   };
 
   useEffect(() => {
-    return () => stopCamera();
+    // Al cargar el componente, disparamos ambos: Cámara y GPS
+    requestLocation();
+    startCamera();
+
+    return () => {
+      if (qrInstanceRef.current && qrInstanceRef.current.isScanning) {
+        qrInstanceRef.current.stop().catch(() => {});
+      }
+    };
   }, []);
-
-  const startCamera = async () => {
-    try {
-      setCameraError("");
-
-      if (cameraActive) {
-        return;
-      }
-
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraError("La camara no esta disponible en este navegador.");
-        return;
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-        audio: false,
-      });
-
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setCameraActive(true);
-    } catch (error) {
-      console.error(error);
-      stopCamera();
-      setCameraActive(false);
-      setCameraError("No se pudo activar la camara del dispositivo.");
-    }
-  };
 
   return (
     <section className="student-panel student-qr-panel">
@@ -54,27 +99,33 @@ const QRScannerPanel = () => {
         <h2>Marcar asistencia</h2>
       </div>
 
-      <div className="student-camera-frame">
-        <video
-          ref={videoRef}
-          className={`student-camera-video ${cameraActive ? "is-active" : ""}`}
-          autoPlay
-          muted
-          playsInline
-        />
-        {!cameraActive && (
-          <div className="student-camera-placeholder">
-            <span className="student-camera-icon">QR</span>
-            <p>Camara lista para escanear el codigo del curso.</p>
-          </div>
-        )}
+      {status.msg && (
+        <div style={{
+          padding: "10px", borderRadius: "8px", marginBottom: "15px", fontSize: "13px", fontWeight: "bold", textAlign: "center",
+          backgroundColor: status.type === "success" ? "#dcfce7" : status.type === "error" ? "#fee2e2" : "#dbeafe",
+          color: status.type === "success" ? "#166534" : status.type === "error" ? "#991b1b" : "#1e40af"
+        }}>
+          {status.msg}
+        </div>
+      )}
+
+      <div style={{
+        width: "220px", height: "220px", margin: "0 auto", borderRadius: "16px",
+        overflow: "hidden", background: "#000", border: "3px solid #e2e8f0"
+      }}>
+        <div id="student-qr-reader" style={{ width: "100%", height: "100%" }}></div>
       </div>
 
-      {cameraError ? <div className="student-inline-error">{cameraError}</div> : null}
-
-      <button type="button" className="student-primary-button" onClick={startCamera}>
-        {cameraActive ? "Camara activa" : "Marcar asistencia"}
-      </button>
+      {loading ? (
+        <p style={{ color: "#2563eb", fontWeight: "bold", marginTop: "15px", textAlign: "center", fontSize: "14px" }}>
+          Procesando asistencia...
+        </p>
+      ) : (
+        <div style={{ marginTop: "15px", textAlign: "center" }}>
+          {!userCoords && <p style={{ color: "#e11d48", fontSize: "12px", fontWeight: "bold" }}>⚠️ GPS requerido</p>}
+          <p style={{ color: "#64748b", fontSize: "13px" }}>Apunta al código QR del docente</p>
+        </div>
+      )}
     </section>
   );
 };
