@@ -8,6 +8,7 @@ import {
   getCourses,
   getInitialCourseForm,
   toggleCourseStatus,
+  toggleGpsRequirement, // Importado para la Geocerca
   updateCourse,
 } from "../application/courseService";
 import {
@@ -20,12 +21,13 @@ import {
 import { auth } from "../../../firebase/firebase";
 import { getUserFromDB } from "../../auth-registro/infrastructure/FirebaseAuthRepository";
 
-const StatusSwitch = ({ checked, onChange }) => (
+// Switch reutilizable con etiquetas dinámicas
+const StatusSwitch = ({ checked, onChange, activeLabel = "Activo", inactiveLabel = "Inactivo" }) => (
   <button
     type="button"
     role="switch"
     aria-checked={checked}
-    aria-label={checked ? "Desactivar curso" : "Activar curso"}
+    aria-label={checked ? `Desactivar` : `Activar`}
     className={`course-status-switch ${checked ? "is-active" : "is-inactive"}`}
     onClick={onChange}
   >
@@ -33,7 +35,7 @@ const StatusSwitch = ({ checked, onChange }) => (
       <span className="course-status-switch__thumb" />
     </span>
     <span className="course-status-switch__label">
-      {checked ? "Activo" : "Inactivo"}
+      {checked ? activeLabel : inactiveLabel}
     </span>
   </button>
 );
@@ -115,7 +117,7 @@ const CoursesSection = () => {
 
   const abrirNuevo = () => {
     setEditando(false);
-    setForm({ ...getInitialCourseForm(), docente: currentTeacher?.nombre || "", teacherUid: currentTeacher?.uid || "", teacherEmail: currentTeacher?.email || "" });
+    setForm({ ...getInitialCourseForm(), docente: currentTeacher?.nombre || "", teacherUid: currentTeacher?.uid || "", teacherEmail: currentTeacher?.email || "", requiereGPS: false });
     setFormError("");
     setModalOpen(true);
   };
@@ -176,6 +178,17 @@ const CoursesSection = () => {
     } catch (err) { alert("Error al cambiar estado."); }
   };
 
+  // Lógica para el toggle de Geocerca
+  const handleToggleGps = async (course) => {
+    try {
+      await toggleGpsRequirement(course);
+      // Actualizamos el estado local para que el switch cambie visualmente
+      setCursos((p) => p.map((item) => 
+        item.id === course.id ? { ...item, requiereGPS: !item.requiereGPS } : item
+      ));
+    } catch (err) { alert("Error al cambiar requerimiento de GPS."); }
+  };
+
   return (
     <>
       {error && <div style={styles.errorBox}>{error}</div>}
@@ -205,6 +218,7 @@ const CoursesSection = () => {
                     <th style={styles.th}>Aula</th>
                     <th style={styles.th}>Dias</th>
                     <th style={styles.th}>Horario</th>
+                    <th style={styles.th}>Geocerca</th>
                     <th style={styles.th}>Estado</th>
                     <th style={styles.th}>Acciones</th>
                   </tr>
@@ -217,11 +231,18 @@ const CoursesSection = () => {
                       <td style={styles.td}>{course.aula}</td>
                       <td style={styles.td}>{(course.dias || []).join(", ")}</td>
                       <td style={styles.td}>{course.horario}</td>
+                      {/* Switch de Geocerca en la tabla */}
+                      <td style={styles.td}>
+                        <StatusSwitch 
+                          checked={Boolean(course.requiereGPS)} 
+                          onChange={() => handleToggleGps(course)} 
+                          activeLabel="Sí" 
+                          inactiveLabel="No"
+                        />
+                      </td>
                       <td style={styles.td}><StatusSwitch checked={Boolean(course.estado)} onChange={() => handleToggleStatus(course)} /></td>
                       <td style={styles.td}>
                         <div style={styles.actionRow} className="responsive-action-row">
-                          
-                          {/* BOTÓN CON ICONO QR */}
                           <button
                             type="button"
                             title="Generar Código QR"
@@ -235,7 +256,6 @@ const CoursesSection = () => {
                               <line x1="7" y1="17" x2="7.01" y2="17" /><line x1="17" y1="17" x2="17.01" y2="17" />
                             </svg>
                           </button>
-
                           <button type="button" style={styles.smallButton} onClick={() => abrirEditar(course)}>Editar</button>
                           <button type="button" style={styles.deleteButton} onClick={() => handleDelete(course)}>Eliminar</button>
                         </div>
@@ -267,6 +287,20 @@ const CoursesSection = () => {
               <div style={styles.field}><label style={styles.label}>Seccion</label><input name="seccion" value={form.seccion} onChange={handleChange} style={styles.input} /></div>
               <div style={styles.field}><label style={styles.label}>Docente</label><input name="docente" value={form.docente} style={{ ...styles.input, ...styles.inputDisabled }} disabled readOnly /></div>
               <div style={styles.field}><label style={styles.label}>Aula</label><input name="aula" value={form.aula} onChange={handleChange} style={styles.input} /></div>
+              
+              {/* Switch de Geocerca en el Modal */}
+              <div style={styles.field}>
+                <label style={styles.label}>Geocerca (GPS)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <StatusSwitch 
+                    checked={Boolean(form.requiereGPS)} 
+                    onChange={() => setForm(p => ({ ...p, requiereGPS: !p.requiereGPS }))} 
+                    activeLabel="Activada" 
+                    inactiveLabel="Desactivada"
+                  />
+                  <span style={styles.mutedText}>Exigir ubicación en sede</span>
+                </div>
+              </div>
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Dias</label>
@@ -306,6 +340,7 @@ const CoursesSection = () => {
   );
 };
 
+// ... (Estilos se mantienen iguales)
 const styles = {
   errorBox: { marginBottom: "18px", padding: "12px 16px", borderRadius: "12px", background: "#fee2e2", color: "#b91c1c" },
   teacherBadge: { marginBottom: "18px", display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 14px", borderRadius: "999px", background: "#e0f2fe", color: "#075985", fontWeight: "700" },

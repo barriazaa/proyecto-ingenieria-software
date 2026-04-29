@@ -1,24 +1,35 @@
 import AttendancePieChart from "./AttendancePieChart"; 
 
 const CourseDetail = ({ course, range, summary, onRangeChange, onBack }) => {
+  // 1. BLINDAJE DE SEGURIDAD: 
+  // Si no hay curso o resumen (mientras carga), mostramos un mensaje amigable
+  if (!course || !summary) {
+    return (
+      <section className="student-panel student-page--center">
+        <p>Cargando detalles del curso...</p>
+      </section>
+    );
+  }
+
   return (
     <section className="student-panel student-course-detail">
+      {/* Botón mejorado visualmente */}
       <button type="button" className="student-back-button" onClick={onBack}>
-        Volver a cursos
+        ← Volver a cursos
       </button>
 
       <div className="student-course-detail__header">
         <div className="student-section-heading">
           <span>Detalle de curso</span>
-          <h2>{course.nombre}</h2>
+          {/* CAMBIO CLAVE: Usamos el nombre profesional generado por el Service/Domain */}
+          <h2>{summary.courseDisplayName || course.nombre}</h2>
         </div>
         <div className="student-course-meta">
           <span>{course.horario || "Horario por definir"}</span>
-          <span>{(course.dias || []).join(", ") || "Dias por definir"}</span>
+          <span>{(course.dias || []).join(", ") || "Días por definir"}</span>
         </div>
       </div>
 
-      {/* 🔽 Ajuste aquí */}
       <div className="student-date-filter">
         <label className="student-date-field">
           <span>Fecha inicio</span>
@@ -41,20 +52,22 @@ const CourseDetail = ({ course, range, summary, onRangeChange, onBack }) => {
       </div>
 
       <div className="student-attendance-summary">
+        {/* Pasamos el summary al gráfico */}
         <AttendancePieChart summary={summary} />
 
         <div className="student-stats-grid">
           <div>
             <span>Total clases</span>
-            <strong>{summary.totalClasses}</strong>
+            {/* Usamos || 0 para evitar errores si el dato tarda en llegar */}
+            <strong>{summary.totalClasses || 0}</strong>
           </div>
           <div>
             <span>Registradas</span>
-            <strong>{summary.attendedClasses}</strong>
+            <strong>{summary.attendedClasses || 0}</strong>
           </div>
           <div>
             <span>Pendientes</span>
-            <strong>{summary.missedClasses}</strong>
+            <strong>{summary.missedClasses || 0}</strong>
           </div>
         </div>
       </div>

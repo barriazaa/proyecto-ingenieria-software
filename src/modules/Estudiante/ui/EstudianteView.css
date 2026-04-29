@@ -1,467 +1,203 @@
+/* --- 1. BASE Y FONDO (INTACTO) --- */
 .student-page {
   min-height: 100vh;
-  height: 100vh;
-  overflow-y: auto;
-
   display: flex;
   justify-content: center;
-  align-items: flex-start; /* 🔥 importante para scroll */
-
+  align-items: flex-start;
   padding: 24px;
-
   background: 
     radial-gradient(circle at top left, rgba(210, 225, 243, 0.8), transparent 32%),
     linear-gradient(135deg, #0D47A1, #2196F3);
-
-  font-family: 'Poppins', 'Inter', 'Roboto', sans-serif;
-  position: relative;
+  font-family: 'Poppins', sans-serif;
   overflow-x: hidden;
-}
-
-.student-page--center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #334155;
-  font-weight: 700;
 }
 
 .student-shell {
   width: 100%;
-  max-width: 1180px;
-  margin: 0 auto;
+  max-width: 1000px;
   z-index: 1;
 }
 
+/* --- 2. HEADER Y LOGOUT --- */
 .student-header {
-  position: relative;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 18px;
+  align-items: center;
+  margin-bottom: 25px;
+  color: white;
 }
 
-.student-eyebrow,
-.student-section-heading span {
-  display: inline-flex;
-  margin-bottom: 8px;
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: #dbeafe;
-  color: #1d4ed8;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.student-header h1,
-.student-section-heading h2 {
-  margin: 0;
-  color: #0f172a;
-  font-weight: 800;
-}
-
-.student-header h1 {
-  font-size: 30px;
-}
-
-.student-header p {
-  margin: 8px 0 0;
-  color: #000000a6;
-  line-height: 2;
-  font-size: 13px;
-}
+.student-header h1 { font-size: 28px; font-weight: 800; margin: 0; color: #fff; }
 
 .student-logout-button {
-  position: absolute; 
-  top: 4px;
-  right: 4px;
-
-  width: auto;
-
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #0f172a;
-
-  padding: 5px 8px; 
-  border-radius: 10px;
-
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 12px;
   cursor: pointer;
   font-weight: 700;
-  font-size: 11px;
-
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(5px);
 }
 
-.student-dashboard-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: 18px;
-  align-items: start;
+/* --- 3. PESTAÑAS (DISEÑO PREMIUM) --- */
+.student-tabs-nav {
+  display: flex;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 6px;
+  border-radius: 16px;
+  margin-bottom: 25px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.student-panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 20px;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-}
-
-.student-qr-panel {
-  display: grid;
-  gap: 16px;
-}
-
-.student-camera-frame {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 4 / 5;
-  min-height: 320px;
-  overflow: hidden;
-  border-radius: 18px;
-  background: #06111d;
-  border: 1px solid #1e293b;
-}
-
-.student-camera-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  opacity: 0;
-}
-
-.student-camera-video.is-active {
-  opacity: 1;
-}
-
-.student-camera-placeholder {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 14px;
-  color: #cbd5e1;
-  text-align: center;
-  padding: 24px;
-}
-
-.student-camera-icon {
-  width: 86px;
-  height: 86px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 18px;
-  color: #ffffff;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.9), rgba(251, 146, 60, 0.92));
-}
-
-.student-primary-button,
-.student-back-button {
+.tab-btn {
+  flex: 1;
+  padding: 12px;
   border: none;
+  border-radius: 12px;
   cursor: pointer;
   font-weight: 700;
+  background: transparent;
+  color: white;
+  transition: 0.3s;
 }
 
-.student-primary-button {
-  width: 100%;
-  min-height: 46px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #ffffff;
-  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.2);
+.tab-btn--active {
+  background: #ffffff !important;
+  color: #2563eb !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-.student-back-button {
-  align-self: flex-start;
-  border-radius: 12px;
-  padding: 10px 14px;
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-
-.student-inline-error {
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: #fee2e2;
-  color: #b91c1c;
-  font-weight: 700;
-}
-
+/* --- 4. LISTADO DE CURSOS (BOTONES LARGOS) --- */
 .student-course-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
 .student-course-card {
-  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 20px 25px;
   display: flex;
   justify-content: space-between;
-  gap: 14px;
-  text-align: left;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  border-radius: 16px;
-  padding: 16px;
+  align-items: center;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.25s ease;
 }
 
 .student-course-card:hover {
-  transform: translateY(-2px);
-  border-color: #93c5fd;
-  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.12);
+  transform: translateX(8px);
+  border-color: #3b82f6;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
 }
 
-.student-course-card strong,
-.student-course-card span,
-.student-course-card small {
-  display: block;
-}
+.student-course-card strong { font-size: 17px; color: #1e293b; }
 
-.student-course-card strong {
-  color: #0f172a;
-  font-size: 16px;
-  margin-bottom: 6px;
-}
-
-.student-course-card span,
-.student-course-card small {
-  color: #64748b;
-  line-height: 1.5;
-}
-
-.student-course-card small {
-  text-align: right;
-  max-width: 180px;
-}
-
-.student-empty-state {
-  padding: 20px;
-  border-radius: 14px;
-  background: #f8fafc;
-  color: #64748b;
-  text-align: center;
-  font-weight: 700;
-}
-
-.student-course-detail {
-  display: grid;
-  gap: 18px;
-}
-
-.student-course-detail__header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.student-course-meta {
-  display: grid;
-  gap: 8px;
-  align-content: start;
-  color: #475569;
-  font-weight: 700;
-  text-align: right;
+/* --- 5. REPORTERÍA (RECUPERADO Y MEJORADO) --- */
+.student-panel, .student-course-detail {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 25px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
 .student-date-filter {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  width: 100%;
-}
-
-.student-date-filter label {
-  display: grid;
-  gap: 8px;
-  color: #334155;
-  font-weight: 700;
-  min-width: 0;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 20px;
 }
 
 .student-date-filter input {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  border: 1px solid #cbd5e1;
+  padding: 12px;
   border-radius: 12px;
-  padding: 12px 14px;
-  color: #0f172a;
-  font-size: 14px;
+  border: 1px solid #cbd5e1;
 }
 
 .student-attendance-summary {
-  display: grid;
-  grid-template-columns: minmax(240px, 0.85fr) minmax(0, 1fr);
-  gap: 18px;
+  display: flex;
+  gap: 30px;
   align-items: center;
-}
-
-.student-attendance-chart {
-  display: grid;
-  justify-items: center;
-  gap: 14px;
+  justify-content: space-around;
+  flex-wrap: wrap;
 }
 
 .student-attendance-chart__pie {
-  width: min(260px, 78vw);
-  aspect-ratio: 1;
+  width: 210px;
+  height: 210px;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06), 0 18px 36px rgba(15, 23, 42, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
 }
 
 .student-attendance-chart__center {
-  width: 58%;
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  align-content: center;
+  width: 140px;
+  height: 140px;
+  background: white;
   border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
-}
-
-.student-attendance-chart__center strong {
-  font-size: 34px;
-  color: #0f172a;
-}
-
-.student-attendance-chart__center span {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.student-attendance-chart__legend {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 12px;
-  color: #334155;
-  font-weight: 700;
-}
-
-.student-attendance-chart__dot {
-  width: 10px;
-  height: 10px;
-  display: inline-block;
-  border-radius: 999px;
-  margin-right: 6px;
-}
-
-.student-attendance-chart__dot--green {
-  background: #16a34a;
-}
-
-.student-attendance-chart__dot--red {
-  background: #dc2626;
 }
 
 .student-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  margin-top: 20px;
 }
 
 .student-stats-grid div {
-  padding: 18px;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
   background: #f8fafc;
-}
-.student-header > div {
-  padding-right: 110px;
-}
-
-.student-stats-grid span,
-.student-stats-grid strong {
-  display: block;
+  padding: 15px;
+  border-radius: 16px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
 }
 
-.student-stats-grid span {
-  color: #64748b;
+/* --- 6. EL ESCÁNER (FIX CUADRO NEGRO) --- */
+#student-qr-reader {
+  width: 100% !important;
+  border: none !important;
+}
+
+#student-qr-reader video {
+  border-radius: 20px !important;
+  object-fit: cover !important;
+}
+
+/* --- RESPONSIVO --- */
+@media (max-width: 650px) {
+  .student-stats-grid { grid-template-columns: 1fr; }
+  .student-date-filter { grid-template-columns: 1fr; }
+  .student-attendance-summary { flex-direction: column; }
+}
+
+.student-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #eff6ff; /* Un azul muy clarito */
+  color: #1d4ed8;       /* El azul principal de tu app */
+  border: none;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-weight: 700;
   font-size: 13px;
-  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
-.student-stats-grid strong {
-  color: #0f172a;
-  font-size: 28px;
-}
-
-@media (max-width: 768px) {
-  .student-logout-button {
-    width: auto;
-  }
-}
-
-  .student-header,
-  .student-course-detail__header,
-  .student-dashboard-grid,
-  .student-attendance-summary {
-    grid-template-columns: 1fr;
-    flex-direction: column;
-  }
-
-  .student-date-filter {
-    grid-template-columns: 1fr;
-  }
-
-  .student-course-meta {
-    text-align: left;
-  }
-
-  .student-camera-frame {
-    aspect-ratio: 1;
-    min-height: 280px;
-  }
-
-  .student-course-card {
-    flex-direction: column;
-  }
-
-  .student-course-card small {
-    max-width: 100%;
-    text-align: left;
-  }
-
-  .student-stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-@media (max-width: 480px) {
-  .student-page {
-    padding: 12px;
-  }
-
-  .student-panel {
-    padding: 16px;
-    border-radius: 17px;
-  }
-
-  .student-header h1 {
-    font-size: 15px;
-  }
-
-  .student-date-filter {
-    grid-template-columns: 1fr;
-  }
-
-  .student-camera-frame {
-    min-height: 240px;
-  }
+.student-back-button:hover {
+  background: #dbeafe;
+  transform: translateX(-4px); /* Pequeño efecto de empuje hacia la izquierda */
+  box-shadow: 0 4px 10px rgba(29, 78, 216, 0.1);
 }

@@ -37,6 +37,7 @@ class FirebaseCoursesRepository {
 
   async createCourse(course) {
     const { id, _collection, ...courseData } = course;
+    // Si courseData incluye requiereGPS, se guardará automáticamente
     const docRef = await addDoc(collection(db, PRIMARY_COLLECTION), courseData);
     return { id: docRef.id, _collection: PRIMARY_COLLECTION, ...courseData };
   }
@@ -61,6 +62,14 @@ class FirebaseCoursesRepository {
     await updateDoc(doc(db, col, courseId), { 
       currentQrToken: token,
       tokenCreatedAt: timestamp 
+    });
+  }
+
+  // NUEVO MÉTODO: Permite definir si un curso específico exige validación GPS
+  async updateGpsRequirement(courseId, targetCollection, requiereGPS) {
+    const col = targetCollection || PRIMARY_COLLECTION;
+    await updateDoc(doc(db, col, courseId), { 
+      requiereGPS: requiereGPS 
     });
   }
 }

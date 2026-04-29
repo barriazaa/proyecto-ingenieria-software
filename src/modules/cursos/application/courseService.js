@@ -25,6 +25,10 @@ export const updateCourse = async (course, existingCourses) => {
   return coursesRepository.updateCourse(normalizedCourse);
 };
 
+export const updateCourseDirect = async (course) => {
+  return coursesRepository.updateCourse(course);
+};
+
 export const deleteCourse = async (course) => {
   return coursesRepository.deleteCourse(course);
 };
@@ -44,4 +48,14 @@ export const toggleCourseStatus = async (course) => {
 // Nueva función integrada para el manejo del token dinámico y hora de creación
 export const updateCourseToken = async (course, token, timestamp) => {
   return coursesRepository.updateCourseToken(course.id, course._collection, token, timestamp);
+};
+
+// NUEVA FUNCIÓN: Cambia el requerimiento de GPS para un curso (Geofencing)
+export const toggleGpsRequirement = async (course) => {
+  const nuevoEstadoGps = !course.requiereGPS;
+  return coursesRepository.updateGpsRequirement(
+    course.id, 
+    course._collection, 
+    nuevoEstadoGps
+  );
 };

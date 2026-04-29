@@ -6,51 +6,61 @@ import EstudianteService from "../application/estudianteService";
 const QRScannerPanel = () => {
   const [status, setStatus] = useState({ msg: "", type: "" });
   const [loading, setLoading] = useState(false);
-  const [userCoords, setUserCoords] = useState(null); // Guardamos la ubicación aquí
+  const [userCoords, setUserCoords] = useState(null); 
   const qrInstanceRef = useRef(null);
 
-  // 1. Función para obtener la ubicación (se llama al inicio)
+  // 1. Función para obtener la ubicación (Ahora se activa SOLO si el curso lo pide)
   const requestLocation = () => {
-    if (!navigator.geolocation) {
-      setStatus({ msg: "Tu navegador no soporta GPS.", type: "error" });
-      return;
-    }
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        setStatus({ msg: "Tu navegador no soporta GPS.", type: "error" });
+        return reject(new Error("No soporta GPS"));
+      }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        });
-        setStatus({ msg: "", type: "" }); // Limpiamos errores si acepta
-      },
-      (geoErr) => {
-        let errorMsg = "Se requiere GPS para marcar asistencia.";
-        if (geoErr.code === 1) errorMsg = "Debes permitir el GPS para usar esta función.";
-        setStatus({ msg: errorMsg, type: "error" });
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const coords = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setUserCoords(coords);
+          resolve(coords);
+        },
+        (geoErr) => {
+          let errorMsg = "Se requiere GPS para marcar asistencia en esta clase.";
+          if (geoErr.code === 1) errorMsg = "Debes permitir el GPS para esta clase específica.";
+          setStatus({ msg: errorMsg, type: "error" });
+          reject(new Error(errorMsg));
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
   };
 
   const onScanSuccess = async (decodedText) => {
     if (loading) return;
 
-    // Si al escanear aún no tenemos coordenadas, reintentamos pedirlas
-    if (!userCoords) {
-      setStatus({ msg: "Esperando señal de GPS... intenta de nuevo.", type: "error" });
-      requestLocation();
-      return;
-    }
-
     try {
       setLoading(true);
-      if (qrInstanceRef.current) await qrInstanceRef.current.stop();
-
       const data = JSON.parse(decodedText);
+      const courseId = data.i;
+
+      // VALIDACIÓN NUEVA: Revisar si el curso requiere GPS antes de pedirlo
+      setStatus({ msg: "Validando requisitos de la clase...", type: "info" });
+      const { requiereGPS } = await EstudianteService.getCourseRequirements(courseId);
+
+      let currentCoords = userCoords;
+
+      // Si la clase requiere GPS y no lo tenemos, lo pedimos en este momento
+      if (requiereGPS && !currentCoords) {
+        setStatus({ msg: "Esta clase requiere validación de ubicación. Activando GPS...", type: "info" });
+        currentCoords = await requestLocation();
+      }
+
+      if (qrInstanceRef.current) await qrInstanceRef.current.stop();
       
-      // Procesamos con las coordenadas que ya teníamos guardadas
-      const res = await EstudianteService.processAttendanceScan(data, auth.currentUser, userCoords);
+      // Procesamos con coordenadas (si fueron requeridas) o sin ellas (si no)
+      const res = await EstudianteService.processAttendanceScan(data, auth.currentUser, currentCoords);
       
       setStatus({ msg: res.message, type: "success" });
     } catch (err) {
@@ -70,8 +80,8 @@ const QRScannerPanel = () => {
 
     try {
       await html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 15, qrbox: { width: 180, height: 180 } },
+        { facingMode: "environment" }, 
+        { fps: 15, qrbox: { width: 180, height: 180 } }, 
         onScanSuccess
       );
     } catch (error) {
@@ -81,8 +91,7 @@ const QRScannerPanel = () => {
   };
 
   useEffect(() => {
-    // Al cargar el componente, disparamos ambos: Cámara y GPS
-    requestLocation();
+    // CAMBIO PODEROSO: Solo arranca la cámara. El GPS se queda apagado.
     startCamera();
 
     return () => {
@@ -122,8 +131,8 @@ const QRScannerPanel = () => {
         </p>
       ) : (
         <div style={{ marginTop: "15px", textAlign: "center" }}>
-          {!userCoords && <p style={{ color: "#e11d48", fontSize: "12px", fontWeight: "bold" }}>⚠️ GPS requerido</p>}
           <p style={{ color: "#64748b", fontSize: "13px" }}>Apunta al código QR del docente</p>
+          <p style={{ color: "#94a3b8", fontSize: "11px", marginTop: "5px" }}>La ubicación solo se pedirá si el curso lo requiere.</p>
         </div>
       )}
     </section>

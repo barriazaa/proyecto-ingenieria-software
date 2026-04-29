@@ -20,6 +20,9 @@ const EstudianteView = () => {
   const [range, setRange] = useState(getDefaultDateRange());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  
+  // Estado para controlar la pestaña activa ('cursos' o 'escanear')
+  const [activeTab, setActiveTab] = useState("cursos");
 
   useEffect(() => {
     let isMounted = true;
@@ -36,9 +39,7 @@ const EstudianteView = () => {
 
         const dashboard = await EstudianteService.getStudentDashboard(firebaseUser.uid);
 
-        if (!isMounted) {
-          return;
-        }
+        if (!isMounted) return;
 
         if (!dashboard.authorized) {
           navigate(ROUTES.home);
@@ -50,7 +51,6 @@ const EstudianteView = () => {
         setAttendances(dashboard.attendances);
       } catch (loadError) {
         console.error(loadError);
-
         if (isMounted) {
           setError(loadError.message || "No se pudo cargar la vista del estudiante.");
         }
@@ -73,18 +73,12 @@ const EstudianteView = () => {
   );
 
   const attendanceSummary = useMemo(() => {
-    if (!selectedCourse) {
-      return null;
-    }
-
+    if (!selectedCourse) return null;
     return EstudianteService.getCourseAttendanceSummary(selectedCourse, attendances, range);
   }, [attendances, range, selectedCourse]);
 
   const handleRangeChange = (field, value) => {
-    setRange((currentRange) => ({
-      ...currentRange,
-      [field]: value,
-    }));
+    setRange((currentRange) => ({ ...currentRange, [field]: value }));
   };
 
   const handleCourseSelect = (course) => {
@@ -96,18 +90,13 @@ const EstudianteView = () => {
       await signOut(auth);
       navigate(ROUTES.login);
     } catch (logoutError) {
-      console.error(logoutError);
       setError("No se pudo cerrar sesion.");
     }
   };
 
-  if (loading) {
-    return <div className="student-page student-page--center">Cargando informacion...</div>;
-  }
+  if (loading) return <div className="student-page student-page--center">Cargando informacion...</div>;
 
-  if (error) {
-    return <div className="student-page student-page--center">{error}</div>;
-  }
+  if (error) return <div className="student-page student-page--center">{error}</div>;
 
   return (
     <main className="student-page">
@@ -137,9 +126,67 @@ const EstudianteView = () => {
             onBack={() => navigate(ROUTES.students)}
           />
         ) : (
-          <div className="student-dashboard-grid">
-            <QRScannerPanel />
-            <CourseList courses={courses} onCourseSelect={handleCourseSelect} />
+          <div className="student-dashboard-content">
+            
+            {/* NAVEGACIÓN DE PESTAÑAS MEJORADA VISUALMENTE */}
+            <nav className="student-tabs-nav" style={{ 
+              display: 'flex', 
+              background: 'rgba(255, 255, 255, 0.15)', 
+              padding: '6px', 
+              borderRadius: '14px', 
+              marginBottom: '25px',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}>
+              <button 
+                className={`tab-btn ${activeTab === 'cursos' ? 'tab-btn--active' : ''}`}
+                onClick={() => setActiveTab("cursos")}
+                style={{
+                  flex: 1,
+                  padding: '12px 20px',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  background: activeTab === 'cursos' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'cursos' ? '#2563eb' : '#ffffff',
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  boxShadow: activeTab === 'cursos' ? '0 4px 12px rgba(0,0,0,0.15)' : 'none'
+                }}
+              >
+                Mis Cursos
+              </button>
+              <button 
+                className={`tab-btn ${activeTab === 'escanear' ? 'tab-btn--active' : ''}`}
+                onClick={() => setActiveTab("escanear")}
+                style={{
+                  flex: 1,
+                  padding: '12px 20px',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  background: activeTab === 'escanear' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'escanear' ? '#2563eb' : '#ffffff',
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  boxShadow: activeTab === 'escanear' ? '0 4px 12px rgba(0,0,0,0.15)' : 'none'
+                }}
+              >
+                Escanear Asistencia
+              </button>
+            </nav>
+
+            {/* CONTENIDO CONDICIONAL POR PESTAÑA */}
+            <div className="student-tab-panel">
+              {activeTab === "cursos" ? (
+                <CourseList courses={courses} onCourseSelect={handleCourseSelect} />
+              ) : (
+                <QRScannerPanel />
+              )}
+            </div>
+
           </div>
         )}
       </Motion.div>
