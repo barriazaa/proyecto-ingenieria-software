@@ -1,54 +1,34 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { auth } from "../../../firebase/firebase";
-import { getUserFromDB } from "../../auth-registro/infrastructure/FirebaseAuthRepository";
 import { getCourses } from "../../cursos/application/courseService";
-import { ROUTES } from "../../../shared/utils/routePaths";
+import { useAuth } from "../../../shared/context/AuthContext";
 
 const normalizeCourseIds = (cursosAsignados = []) =>
   cursosAsignados.map((c) => (typeof c === "string" ? c : c.id || c.courseId)).filter(Boolean);
 
 const StudentView = () => {
-  const [student, setStudent] = useState(null);
+  const { currentUser } = useAuth();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const navigate = useNavigate();
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadCourses = async () => {
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          navigate(ROUTES.login);
-          return;
-        }
-
-        const [userData, allCourses] = await Promise.all([
-          getUserFromDB(currentUser.uid),
-          getCourses(),
-        ]);
-
-        if (!userData) {
-          navigate(ROUTES.login);
-          return;
-        }
-
-        const assignedIds = normalizeCourseIds(userData.cursosAsignados);
-        const assignedCourses = allCourses.filter((c) => assignedIds.includes(c.id));
-
-        setStudent(userData);
-        setCourses(assignedCourses);
+        const allCourses = await getCourses();
+        const assignedIds = normalizeCourseIds(currentUser?.cursosAsignados);
+        setCourses(allCourses.filter((c) => assignedIds.includes(c.id)));
       } catch (err) {
         console.error(err);
-        setError("No se pudo cargar tu informacion.");
+        setError("No se pudieron cargar tus cursos.");
       } finally {
         setLoading(false);
       }
     };
 
-    loadData();
-  }, [navigate]);
+    if (currentUser) {
+      loadCourses();
+    }
+  }, [currentUser]);
 
   if (loading) {
     return <div style={styles.loading}>Cargando tu informacion...</div>;
@@ -58,8 +38,8 @@ const StudentView = () => {
     return <div style={styles.error}>{error}</div>;
   }
 
-  const fullName = `${student?.nombres || ""} ${student?.apellidos || ""}`.trim() || "Estudiante";
-  const estado = student?.estado || "Activo";
+  const fullName = `${currentUser?.nombres || ""} ${currentUser?.apellidos || ""}`.trim() || "Estudiante";
+  const estado = currentUser?.estado || "Activo";
 
   return (
     <div style={styles.page}>
@@ -75,8 +55,8 @@ const StudentView = () => {
         </div>
 
         <div style={styles.infoGrid}>
-          <InfoCard label="Carnet" value={student?.carnet || "Sin carnet"} />
-          <InfoCard label="Correo" value={student?.email || student?.correo || "Sin correo"} />
+          <InfoCard label="Carnet" value={currentUser?.carnet || "Sin carnet"} />
+          <InfoCard label="Correo" value={currentUser?.email || currentUser?.correo || "Sin correo"} />
           <InfoCard label="Cursos asignados" value={String(courses.length)} />
         </div>
 
