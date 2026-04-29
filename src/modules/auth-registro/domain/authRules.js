@@ -1,6 +1,6 @@
 export const AUTH_ROLES = {
-  student: "estudiante",
-  teacher: "catedratico",
+  student: "Estudiante",
+  teacher: "Catedratico",
 };
 
 export const AUTH_ROLE_OPTIONS = [

@@ -27,6 +27,7 @@ export const createCatedraticoCards = (reporteria) => [
 
 export const mapStudentsForView = (students) =>
   students.map((student) => ({
+    ...student,
     id: student.uid || student.id,
     nombre: `${student.nombres || ""} ${student.apellidos || ""}`.trim() || student.nombre || "Sin nombre",
     correo: student.email || student.correo || "Sin correo",

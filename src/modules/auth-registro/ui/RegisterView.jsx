@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { AUTH_ROLE_OPTIONS } from "../domain/authRules";
 import { registerCompleteUser,
-        startGoogleRegistration,
+         startGoogleRegistration,
 } from "../application/AuthService";
 import { ROUTES } from "../../../shared/utils/routePaths";
 
@@ -24,7 +24,7 @@ const RegisterField = ({
   trailingAction = null,
   readOnly = false,
 }) => (
-  <label style={styles.field}>
+  <label style={styles.field} className="responsive-field">
     <span style={styles.fieldLabel}>{label}</span>
     <div style={styles.inputShell}>
       <input
@@ -42,6 +42,7 @@ const RegisterField = ({
           ...(readOnly ? styles.inputReadOnly : {}),
           ...(trailingAction ? styles.inputWithAction : {}),
         }}
+        className="responsive-input"
       />
       {trailingAction}
     </div>
@@ -57,6 +58,9 @@ const RegisterView = () => {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState("");
+  
+
+  const hasAttemptedAuth = useRef(false);
 
   const [form, setForm] = useState({
     carnet: "",
@@ -65,11 +69,6 @@ const RegisterView = () => {
     password: "",
     confirmPassword: "",
   });
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((currentForm) => ({ ...currentForm, [name]: value }));
-  };
 
   const handleGoogleRegistration = async () => {
     try {
@@ -87,10 +86,30 @@ const RegisterView = () => {
           "",
       }));
     } catch (err) {
+    if (err.message.includes("auth/popup-closed-by-user")) {
+setError(""); 
+        console.log("El usuario cerró la ventana, regresando al inicio...");
+        navigate(ROUTES.login);
+      } else {
+
       setError(err.message || "Error con Google");
+      }
     }
 
     setLoading(false);
+  };
+
+  useEffect(() => {
+    if (!user && !hasAttemptedAuth.current) {
+      hasAttemptedAuth.current = true;
+      handleGoogleRegistration();
+    }
+
+  }, []);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((currentForm) => ({ ...currentForm, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -110,12 +129,13 @@ const RegisterView = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="auth-page">
       <div style={styles.backgroundGlowTop} />
       <div style={styles.backgroundGlowBottom} />
 
       <motion.div
         style={styles.card}
+        className="auth-card register-card"
         initial={{ opacity: 0, scale: 0.96, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.35 }}
@@ -126,32 +146,40 @@ const RegisterView = () => {
 
         {!user && (
           <div style={styles.authEntry}>
-            <button
-              type="button"
-              style={styles.googleButton}
-              onClick={handleGoogleRegistration}
-              disabled={loading}
-            >
-              <span style={styles.googleIconWrap}>
-                <img src={GOOGLE_ICON_SRC} width="20" height="20" alt="Google" />
-              </span>
-              <span style={styles.googleButtonText}>
-                {loading ? "Conectando con Google..." : "Continuar con Google"}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              style={styles.linkButton}
-              onClick={() => navigate(ROUTES.login)}
-            >
-              Volver al inicio de sesion
-            </button>
+            {!error ? (
+              <div style={{ textAlign: "center", padding: "20px 0", color: "#1d4ed8", fontWeight: "600" }}>
+                Abriendo Google para continuar...
+              </div>
+            ) : (
+              <>
+                <div style={styles.error}>{error}</div>
+                <button
+                  type="button"
+                  style={styles.googleButton}
+                  onClick={handleGoogleRegistration}
+                  disabled={loading}
+                >
+                  <span style={styles.googleIconWrap}>
+                    <img src={GOOGLE_ICON_SRC} width="20" height="20" alt="Google" />
+                  </span>
+                  <span style={styles.googleButtonText}>
+                    {loading ? "Conectando..." : "Reintentar con Google"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  style={styles.linkButton}
+                  onClick={() => navigate(ROUTES.login)}
+                >
+                  Volver al inicio de sesion
+                </button>
+              </>
+            )}
           </div>
         )}
 
         {user && (
-          <form onSubmit={handleSubmit} style={styles.form}>
+          <form onSubmit={handleSubmit} style={styles.form} className="responsive-form-stack">
             <div style={styles.profileSection}>
               <div style={styles.avatarFrame}>
                 <img
@@ -163,7 +191,7 @@ const RegisterView = () => {
               <p style={styles.profileEmail}>{user.email}</p>
             </div>
 
-            <div style={styles.formGrid}>
+            <div style={styles.formGrid} className="responsive-form-grid">
               <RegisterField
                 label="Correo"
                 name="email"
@@ -186,6 +214,7 @@ const RegisterView = () => {
                     ...styles.select,
                     ...(focusedField === "rol" ? styles.inputFocused : {}),
                   }}
+                  className="responsive-input"
                 >
                   <option value="">Selecciona un rol</option>
                   {AUTH_ROLE_OPTIONS.map((roleOption) => (
@@ -223,12 +252,12 @@ const RegisterView = () => {
                 setFocusedField={setFocusedField}
               />
               <RegisterField
-                label="Contrasena"
+                label="Contraseña"
                 name="password"
                 type={showPassword ? "text" : "password"}
                 value={form.password}
                 onChange={handleChange}
-                placeholder="Crea una contrasena"
+                placeholder="Crea una contraseña"
                 focusedField={focusedField}
                 setFocusedField={setFocusedField}
                 trailingAction={
@@ -242,12 +271,12 @@ const RegisterView = () => {
                 }
               />
               <RegisterField
-                label="Confirmar contrasena"
+                label="Confirmar contraseña"
                 name="confirmPassword"
                 type={showPassword ? "text" : "password"}
                 value={form.confirmPassword}
                 onChange={handleChange}
-                placeholder="Confirma tu contrasena"
+                placeholder="Confirma tu contraseña"
                 focusedField={focusedField}
                 setFocusedField={setFocusedField}
                 trailingAction={
@@ -262,7 +291,12 @@ const RegisterView = () => {
               />
             </div>
 
-            <button type="submit" style={styles.primaryButton} disabled={loading}>
+            <button
+              type="submit"
+              style={styles.primaryButton}
+              className="responsive-button-full-mobile"
+              disabled={loading}
+            >
               {loading ? "Guardando..." : "Completar registro"}
             </button>
 
@@ -275,12 +309,11 @@ const RegisterView = () => {
             </button>
           </form>
         )}
-
-        {error && <div style={styles.error}>{error}</div>}
       </motion.div>
     </div>
   );
 };
+
 
 const styles = {
   container: {
@@ -289,8 +322,7 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
     padding: "24px",
-    background:
-      "radial-gradient(circle at top left, rgba(96, 165, 250, 0.28), transparent 32%), linear-gradient(160deg, #eef4ff 0%, #dce8ff 48%, #f5f9ff 100%)",
+    background: "radial-gradient(circle at top left, rgba(210, 225, 243, 0.8), transparent 32%), linear-gradient(135deg, #0D47A1, #2196F3)",
     fontFamily: "'Poppins', 'Inter', 'Roboto', sans-serif",
     position: "relative",
     overflow: "hidden",

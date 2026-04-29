@@ -14,6 +14,11 @@ class CatedraticoService {
       cards: createCatedraticoCards(reporteria),
     };
   }
+
+  async updateStudent(student) {
+    const updatedStudent = await FirebaseCatedraticoRepository.updateStudent(student);
+    return mapStudentsForView([updatedStudent])[0];
+  }
 }
 
 export default new CatedraticoService();

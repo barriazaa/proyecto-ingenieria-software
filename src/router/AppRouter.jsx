@@ -1,7 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import LoginView from "../modules/auth-registro/ui/LoginView";
 import RegisterView from "../modules/auth-registro/ui/RegisterView";
-import StudentView from "../modules/alumno/ui/StudentView";
+import EstudianteView from "../modules/Estudiante/ui/EstudianteView";
 import CatedraticoView from "../modules/Catedratico/ui/CatedraticoView";
 import CoursesView from "../modules/cursos/ui/CoursesView";
 import ReportView from "../modules/reporte/ui/ReportView";
@@ -16,7 +16,8 @@ const AppRouter = () => {
         <Route path={ROUTES.home} element={<CatedraticoView />} />
         <Route path={ROUTES.teacher} element={<CatedraticoView />} />
         <Route path={ROUTES.courses} element={<CoursesView />} />
-        <Route path={ROUTES.students} element={<StudentView />} />
+        <Route path={ROUTES.students} element={<EstudianteView />} />
+        <Route path={`${ROUTES.students}/:courseId`} element={<EstudianteView />} />
         <Route path={ROUTES.reports} element={<ReportView />} />
       </Routes>
     </BrowserRouter>
@@ -24,4 +25,3 @@ const AppRouter = () => {
 };
 
 export default AppRouter;
-

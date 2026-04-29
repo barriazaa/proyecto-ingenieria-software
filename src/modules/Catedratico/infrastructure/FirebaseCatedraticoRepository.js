@@ -1,27 +1,51 @@
 import { db } from "../../../firebase/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
 
 const PRIMARY_USERS_COLLECTION = "users";
 const LEGACY_USERS_COLLECTION = "usuarios";
 const PRIMARY_COURSES_COLLECTION = "courses";
 const LEGACY_COURSES_COLLECTION = "cursos";
 
+const normalizeText = (value = "") =>
+  String(value)
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const isStudentRole = (role) => {
+  const normalizedRole = normalizeText(role);
+  return normalizedRole === "estudiante" || normalizedRole === "alumno";
+};
+
 const readCollection = async (collectionName) => {
   const snapshot = await getDocs(collection(db, collectionName));
   return snapshot.docs.map((documentSnapshot) => ({
     id: documentSnapshot.id,
+    _collection: collectionName,
     ...documentSnapshot.data(),
   }));
 };
 
 const getAllUsers = async () => {
-  const users = await readCollection(PRIMARY_USERS_COLLECTION);
+  const [primaryUsers, legacyUsers] = await Promise.all([
+    readCollection(PRIMARY_USERS_COLLECTION),
+    readCollection(LEGACY_USERS_COLLECTION),
+  ]);
+  const usersById = new Map();
 
-  if (users.length > 0) {
-    return users;
-  }
+  [...primaryUsers, ...legacyUsers].forEach((user) => {
+    const userId = user.uid || user.id;
 
-  return readCollection(LEGACY_USERS_COLLECTION);
+    if (userId) {
+      usersById.set(userId, user);
+      return;
+    }
+
+    usersById.set(`${user._collection}-${usersById.size}`, user);
+  });
+
+  return Array.from(usersById.values());
 };
 
 const getAllCourses = async () => {
@@ -37,7 +61,7 @@ const getAllCourses = async () => {
 class FirebaseCatedraticoRepository {
   async getReporteria() {
     const [users, courses] = await Promise.all([getAllUsers(), getAllCourses()]);
-    const estudiantes = users.filter((user) => user.rol === "estudiante");
+    const estudiantes = users.filter((user) => isStudentRole(user.rol));
     const cursosActivos = courses.filter((course) => course.estado);
 
     return {
@@ -48,21 +72,39 @@ class FirebaseCatedraticoRepository {
   }
 
   async getEstudiantes() {
-    const usersQuery = query(
-      collection(db, PRIMARY_USERS_COLLECTION),
-      where("rol", "==", "estudiante")
-    );
-    const usersSnapshot = await getDocs(usersQuery);
+    const users = await getAllUsers();
+    return users.filter((user) => isStudentRole(user.rol));
+  }
 
-    if (!usersSnapshot.empty) {
-      return usersSnapshot.docs.map((documentSnapshot) => ({
-        id: documentSnapshot.id,
-        ...documentSnapshot.data(),
-      }));
-    }
+  async updateStudent(student) {
+    const targetCollection = student._collection || LEGACY_USERS_COLLECTION;
+    const { id, uid, _collection, nombre, correo, cursosAsignados, ...studentData } = student;
+    const targetId = uid || id;
 
-    const legacyUsers = await getAllUsers();
-    return legacyUsers.filter((user) => user.rol === "estudiante");
+    const [nombres = "", ...apellidosParts] = (nombre || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    const apellidos = apellidosParts.join(" ");
+
+    const payload = {
+      ...studentData,
+      uid: targetId,
+      carnet: student.carnet || "",
+      estado: student.estado || "Activo",
+      nombres,
+      apellidos,
+      email: correo || student.email || "",
+      cursosAsignados: Array.isArray(cursosAsignados) ? cursosAsignados : [],
+    };
+
+    await updateDoc(doc(db, targetCollection, targetId), payload);
+
+    return {
+      id: targetId,
+      _collection: targetCollection,
+      ...payload,
+    };
   }
 }
 

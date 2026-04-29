@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCourses } from "../../cursos/application/courseService";
+import CatedraticoService from "../application/CatedraticoService";
 
 const getStudentFullName = (student) => student?.nombre || "Sin nombre";
 
@@ -15,13 +16,17 @@ const normalizeCourseAssignments = (student) => {
     return [];
   }
 
-  return candidateAssignments.map((course) =>
-    typeof course === "string" ? course : course.id || course.courseId
-  );
+  return candidateAssignments
+    .map((course) =>
+      typeof course === "string" ? course : course?.id || course?.courseId
+    )
+    .filter(Boolean);
 };
 
 const resolveAssignedCourses = (student, allCourses, assignedCourseIds) => {
-  const explicitAssignments = allCourses.filter((course) => assignedCourseIds.includes(course.id));
+  const explicitAssignments = allCourses.filter((course) =>
+    assignedCourseIds.includes(course.id)
+  );
 
   if (explicitAssignments.length > 0) {
     return explicitAssignments;
@@ -69,28 +74,64 @@ const StudentRow = ({ student, selected, onSelect }) => (
   </button>
 );
 
-const FieldEditor = ({ label, value, onChange }) => (
-  <label style={styles.editorField}>
-    <span style={styles.editorLabel}>{label}</span>
-    <input value={value} onChange={onChange} style={styles.editorInput} />
-  </label>
-);
-
-const DetailLine = ({ label, value, valueNode = null }) => (
+const DetailLine = ({
+  label,
+  value,
+  isEditing,
+  onEdit,
+  onChange,
+  onBlur,
+  valueNode = null,
+  canEdit = true,
+}) => (
   <div style={styles.detailLine}>
     <span style={styles.detailLabel}>{label}</span>
-    {valueNode || <span style={styles.detailValue}>{value}</span>}
+    <div style={styles.detailValueContainer}>
+      {isEditing ? (
+        <input
+          autoFocus
+          style={styles.inlineInput}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          onKeyDown={(e) => e.key === "Enter" && onBlur()}
+        />
+      ) : (
+        valueNode || <span style={styles.detailValue}>{value}</span>
+      )}
+      {canEdit && !isEditing && (
+        <button
+          type="button"
+          style={styles.editIconButton}
+          onClick={onEdit}
+          title={`Editar ${label}`}
+        >
+          Editar
+        </button>
+      )}
+    </div>
   </div>
 );
 
-const EstudiantesTable = ({ estudiantes }) => {
+const buildAssignmentsMap = (students) =>
+  students.reduce((accumulator, student) => {
+    accumulator[student.id] = normalizeCourseAssignments(student);
+    return accumulator;
+  }, {});
+
+const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
   const [studentsState, setStudentsState] = useState(estudiantes);
   const [selectedStudentId, setSelectedStudentId] = useState(estudiantes[0]?.id || "");
   const [allCourses, setAllCourses] = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [coursesError, setCoursesError] = useState("");
-  const [courseAssignments, setCourseAssignments] = useState({});
+  const [courseAssignments, setCourseAssignments] = useState(
+    buildAssignmentsMap(estudiantes)
+  );
   const [selectedCourseToAssign, setSelectedCourseToAssign] = useState("");
+  const [editingField, setEditingField] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     setStudentsState(estudiantes);
@@ -98,16 +139,9 @@ const EstudiantesTable = ({ estudiantes }) => {
       if (currentId && estudiantes.some((student) => student.id === currentId)) {
         return currentId;
       }
-
       return estudiantes[0]?.id || "";
     });
-
-    setCourseAssignments(
-      estudiantes.reduce((accumulator, student) => {
-        accumulator[student.id] = normalizeCourseAssignments(student);
-        return accumulator;
-      }, {})
-    );
+    setCourseAssignments(buildAssignmentsMap(estudiantes));
   }, [estudiantes]);
 
   useEffect(() => {
@@ -118,14 +152,13 @@ const EstudiantesTable = ({ estudiantes }) => {
         setCoursesLoading(true);
         setCoursesError("");
         const data = await getCourses();
-
         if (isMounted) {
           setAllCourses(data);
         }
       } catch (error) {
         console.error(error);
         if (isMounted) {
-          setCoursesError("No se pudieron cargar los cursos para esta vista.");
+          setCoursesError("No se pudieron cargar los cursos.");
         }
       } finally {
         if (isMounted) {
@@ -142,7 +175,9 @@ const EstudiantesTable = ({ estudiantes }) => {
   }, []);
 
   const selectedStudent =
-    studentsState.find((student) => student.id === selectedStudentId) || studentsState[0] || null;
+    studentsState.find((student) => student.id === selectedStudentId) ||
+    studentsState[0] ||
+    null;
 
   const assignedCourseIds = selectedStudent
     ? courseAssignments[selectedStudent.id] || []
@@ -161,7 +196,44 @@ const EstudiantesTable = ({ estudiantes }) => {
     [allCourses, assignedCourseIds]
   );
 
+  const persistStudent = async (studentId, overrides = {}) => {
+    const currentStudent = studentsState.find((student) => student.id === studentId);
+
+    if (!currentStudent) {
+      return;
+    }
+
+    const updatedStudentDraft = { ...currentStudent, ...overrides };
+
+    try {
+      setSaving(true);
+      setSaveError("");
+      const savedStudent = await CatedraticoService.updateStudent(updatedStudentDraft);
+
+      setStudentsState((currentStudents) =>
+        currentStudents.map((student) =>
+          student.id === savedStudent.id ? savedStudent : student
+        )
+      );
+
+      setCourseAssignments((currentAssignments) => ({
+        ...currentAssignments,
+        [savedStudent.id]: normalizeCourseAssignments(savedStudent),
+      }));
+
+      onStudentUpdated?.(savedStudent);
+    } catch (error) {
+      console.error(error);
+      setSaveError("No se pudieron guardar los cambios del estudiante.");
+      setStudentsState(estudiantes);
+      setCourseAssignments(buildAssignmentsMap(estudiantes));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleStudentFieldChange = (field, value) => {
+    setSaveError("");
     setStudentsState((currentStudents) =>
       currentStudents.map((student) =>
         student.id === selectedStudentId ? { ...student, [field]: value } : student
@@ -169,49 +241,73 @@ const EstudiantesTable = ({ estudiantes }) => {
     );
   };
 
-  const handleToggleStatus = () => {
+  const handleFieldBlur = async (field) => {
+    if (!selectedStudent) {
+      setEditingField(null);
+      return;
+    }
+
+    const draftStudent = studentsState.find((student) => student.id === selectedStudent.id);
+
+    setEditingField(null);
+    await persistStudent(selectedStudent.id, {
+      [field]: draftStudent?.[field] || "",
+      cursosAsignados: courseAssignments[selectedStudent.id] || [],
+    });
+  };
+
+  const handleToggleStatus = async () => {
     if (!selectedStudent) {
       return;
     }
 
-    handleStudentFieldChange(
-      "estado",
-      selectedStudent.estado === "Activo" ? "Inactivo" : "Activo"
-    );
+    const nextEstado = selectedStudent.estado === "Activo" ? "Inactivo" : "Activo";
+    handleStudentFieldChange("estado", nextEstado);
+
+    await persistStudent(selectedStudent.id, {
+      estado: nextEstado,
+      cursosAsignados: assignedCourseIds,
+    });
   };
 
-  const handleAssignCourse = () => {
+  const handleAssignCourse = async () => {
     if (!selectedStudent || !selectedCourseToAssign) {
       return;
     }
 
-    setCourseAssignments((currentAssignments) => {
-      const studentAssignments = currentAssignments[selectedStudent.id] || [];
+    const currentAssignments = courseAssignments[selectedStudent.id] || [];
 
-      if (studentAssignments.includes(selectedCourseToAssign)) {
-        return currentAssignments;
-      }
+    if (currentAssignments.includes(selectedCourseToAssign)) {
+      return;
+    }
 
-      return {
-        ...currentAssignments,
-        [selectedStudent.id]: [...studentAssignments, selectedCourseToAssign],
-      };
-    });
+    const nextAssignments = [...currentAssignments, selectedCourseToAssign];
 
+    setCourseAssignments((currentAssignmentsMap) => ({
+      ...currentAssignmentsMap,
+      [selectedStudent.id]: nextAssignments,
+    }));
+
+    await persistStudent(selectedStudent.id, { cursosAsignados: nextAssignments });
     setSelectedCourseToAssign("");
   };
 
-  const handleRemoveCourse = (courseId) => {
+  const handleRemoveCourse = async (courseId) => {
     if (!selectedStudent) {
       return;
     }
 
-    setCourseAssignments((currentAssignments) => ({
-      ...currentAssignments,
-      [selectedStudent.id]: (currentAssignments[selectedStudent.id] || []).filter(
-        (assignedId) => assignedId !== courseId
-      ),
+    const currentAssignments = courseAssignments[selectedStudent.id] || [];
+    const nextAssignments = currentAssignments.filter(
+      (assignedId) => assignedId !== courseId
+    );
+
+    setCourseAssignments((currentAssignmentsMap) => ({
+      ...currentAssignmentsMap,
+      [selectedStudent.id]: nextAssignments,
     }));
+
+    await persistStudent(selectedStudent.id, { cursosAsignados: nextAssignments });
   };
 
   if (studentsState.length === 0) {
@@ -221,16 +317,15 @@ const EstudiantesTable = ({ estudiantes }) => {
   const totalAssignedCourses = assignedCourses.length;
 
   return (
-    <div style={styles.layout}>
-      <aside style={styles.sidebar}>
+    <div style={styles.layout} className="students-layout">
+      <aside style={styles.sidebar} className="responsive-card-shell">
         <div style={styles.sidebarHeader}>
           <span style={styles.sectionBadge}>Estudiantes</span>
           <h3 style={styles.sidebarTitle}>Listado activo</h3>
           <p style={styles.sidebarText}>
-            Selecciona un estudiante para revisar su ficha y sus cursos en la misma vista.
+            Selecciona un estudiante para revisar su ficha y sus cursos.
           </p>
         </div>
-
         <div style={styles.studentList}>
           {studentsState.map((student) => (
             <StudentRow
@@ -246,117 +341,115 @@ const EstudiantesTable = ({ estudiantes }) => {
       <section style={styles.content}>
         {selectedStudent && (
           <>
-            <div style={styles.detailCard}>
-              <div style={styles.detailHeader}>
+            <div style={styles.detailCard} className="responsive-card-shell">
+              {saveError ? <div style={styles.warningBox}>{saveError}</div> : null}
+
+              <div style={styles.detailHeader} className="responsive-stack-tablet responsive-gap-md">
                 <div>
                   <span style={styles.sectionBadge}>Detalle del estudiante</span>
                   <h3 style={styles.detailTitle}>{getStudentFullName(selectedStudent)}</h3>
                   <p style={styles.detailSubtitle}>
-                    Panel maestro con informacion editable y resumen academico del estudiante.
-                  </p>
-                </div>
 
-                <button type="button" onClick={handleToggleStatus} style={styles.statusToggle}>
+                  </p>
+                  <span style={styles.inlineHint}>
+                    {saving ? "Guardando cambios..." : "Datos principales del Estudiante."}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleStatus}
+                  style={styles.statusToggle}
+                  className="responsive-button-full-mobile"
+                >
                   Cambiar a {selectedStudent.estado === "Activo" ? "Inactivo" : "Activo"}
                 </button>
               </div>
 
-              <div style={styles.metricsGrid}>
-                <StudentMetricCard label="Carnet" value={selectedStudent.carnet} accent="#2563eb" />
-                <StudentMetricCard label="Estado" value={selectedStudent.estado} accent="#14b8a6" />
+              <div style={styles.metricsGrid} className="responsive-form-grid">
                 <StudentMetricCard
-                  label="Cursos asignados"
+                  label="Carnet"
+                  value={selectedStudent.carnet}
+                  accent="#2563eb"
+                />
+                <StudentMetricCard
+                  label="Estado"
+                  value={selectedStudent.estado}
+                  accent="#14b8a6"
+                />
+                <StudentMetricCard
+                  label="Cursos"
                   value={String(totalAssignedCourses)}
                   accent="#f97316"
                 />
               </div>
 
-              <div style={styles.detailGrid}>
-                <div style={styles.detailPanel}>
+              <div style={styles.detailGridFull}>
+                <div style={styles.detailPanel} className="responsive-card-shell">
                   <h4 style={styles.panelTitle}>Ficha general</h4>
                   <div style={styles.detailList}>
-                    <DetailLine label="Nombre completo" value={selectedStudent.nombre} />
-                    <DetailLine label="Carnet" value={selectedStudent.carnet} />
-                    <DetailLine label="Correo" value={selectedStudent.correo} />
+                    <DetailLine
+                      label="Nombre completo"
+                      value={selectedStudent.nombre}
+                      isEditing={editingField === "nombre"}
+                      onEdit={() => setEditingField("nombre")}
+                      onChange={(value) => handleStudentFieldChange("nombre", value)}
+                      onBlur={() => handleFieldBlur("nombre")}
+                    />
+                    <DetailLine
+                      label="Carnet"
+                      value={selectedStudent.carnet}
+                      isEditing={editingField === "carnet"}
+                      onEdit={() => setEditingField("carnet")}
+                      onChange={(value) => handleStudentFieldChange("carnet", value)}
+                      onBlur={() => handleFieldBlur("carnet")}
+                    />
+                    <DetailLine
+                      label="Correo"
+                      value={selectedStudent.correo}
+                      isEditing={editingField === "correo"}
+                      onEdit={() => setEditingField("correo")}
+                      onChange={(value) => handleStudentFieldChange("correo", value)}
+                      onBlur={() => handleFieldBlur("correo")}
+                    />
                     <DetailLine
                       label="Estado"
+                      canEdit={false}
                       valueNode={
-                        <span style={buildStatusPillStyle(selectedStudent.estado)}>
+                        <span
+                          style={{
+                            ...buildStatusPillStyle(selectedStudent.estado),
+                            cursor: "pointer",
+                          }}
+                          onClick={handleToggleStatus}
+                        >
                           {selectedStudent.estado}
                         </span>
                       }
                     />
-                    <DetailLine label="Cantidad de cursos" value={String(totalAssignedCourses)} />
-                  </div>
-                </div>
-
-                <div style={styles.detailPanel}>
-                  <h4 style={styles.panelTitle}>Edicion rapida</h4>
-                  <div style={styles.editorGrid}>
-                    <FieldEditor
-                      label="Nombre completo"
-                      value={selectedStudent.nombre}
-                      onChange={(event) =>
-                        handleStudentFieldChange("nombre", event.target.value)
-                      }
+                    <DetailLine
+                      label="Cantidad de cursos"
+                      value={String(totalAssignedCourses)}
+                      canEdit={false}
                     />
-                    <FieldEditor
-                      label="Carnet"
-                      value={selectedStudent.carnet}
-                      onChange={(event) =>
-                        handleStudentFieldChange("carnet", event.target.value)
-                      }
-                    />
-                  </div>
-
-                  <div style={styles.statusEditor}>
-                    <div>
-                      <span style={styles.editorLabel}>Estado</span>
-                      <p style={styles.statusHelper}>
-                        Cambia rapidamente la disponibilidad del estudiante en el panel.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleToggleStatus}
-                      style={{
-                        ...styles.toggleShell,
-                        ...(selectedStudent.estado === "Activo"
-                          ? styles.toggleShellActive
-                          : styles.toggleShellInactive),
-                      }}
-                    >
-                      <span
-                        style={{
-                          ...styles.toggleKnob,
-                          ...(selectedStudent.estado === "Activo"
-                            ? styles.toggleKnobActive
-                            : {}),
-                        }}
-                      />
-                      <span style={styles.toggleText}>{selectedStudent.estado}</span>
-                    </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div style={styles.courseCard}>
-              <div style={styles.courseHeader}>
+            <div style={styles.courseCard} className="responsive-card-shell">
+              <div style={styles.courseHeader} className="responsive-stack-tablet responsive-gap-md">
                 <div>
                   <span style={styles.sectionBadge}>Cursos asignados</span>
-                  <h3 style={styles.courseTitle}>Listado academico</h3>
-                  <p style={styles.courseSubtitle}>
-                    Consulta la asignacion actual y agrega cursos visibles en el sistema.
-                  </p>
+                  <h3 style={styles.courseTitle}>Listado de cursos asignados</h3>
+                  {coursesError ? <div style={styles.warningBox}>{coursesError}</div> : null}
                 </div>
-
-                <div style={styles.assignBox}>
+                <div style={styles.assignBox} className="responsive-toolbar-controls">
                   <select
                     value={selectedCourseToAssign}
                     onChange={(event) => setSelectedCourseToAssign(event.target.value)}
                     style={styles.assignSelect}
-                    disabled={coursesLoading || availableCourses.length === 0}
+                    className="responsive-input"
+                    disabled={coursesLoading || availableCourses.length === 0 || saving}
                   >
                     <option value="">Asignar nuevo curso</option>
                     {availableCourses.map((course) => (
@@ -365,51 +458,47 @@ const EstudiantesTable = ({ estudiantes }) => {
                       </option>
                     ))}
                   </select>
-                  <button type="button" onClick={handleAssignCourse} style={styles.assignButton}>
+                  <button
+                    type="button"
+                    onClick={handleAssignCourse}
+                    style={styles.assignButton}
+                    className="responsive-button-full-mobile"
+                    disabled={saving}
+                  >
                     Asignar
                   </button>
                 </div>
               </div>
 
-              {coursesError && <div style={styles.warningBox}>{coursesError}</div>}
-
               {coursesLoading ? (
-                <div style={styles.loadingBox}>Cargando cursos disponibles...</div>
+                <div style={styles.loadingBox}>Cargando cursos...</div>
               ) : assignedCourses.length > 0 ? (
-                <div style={styles.courseTableWrap}>
-                  <table style={styles.courseTable}>
+                <div style={styles.courseTableWrap} className="responsive-table-scroll">
+                  <table style={styles.courseTable} className="responsive-table assigned-courses-table">
                     <thead>
                       <tr>
-                        <th style={styles.th}>Nombre del curso</th>
+                        <th style={styles.th}>Curso</th>
                         <th style={styles.th}>Seccion</th>
                         <th style={styles.th}>Horario</th>
-                        <th style={styles.th}>Dias</th>
                         <th style={styles.th}>Accion</th>
                       </tr>
                     </thead>
                     <tbody>
                       {assignedCourses.map((course) => (
                         <tr key={course.id || `${course.nombre}-${course.seccion}`}>
-                          <td style={styles.td}>{course.nombre || "Curso sin nombre"}</td>
-                          <td style={styles.td}>{course.seccion || "Sin seccion"}</td>
-                          <td style={styles.td}>{course.horario || "Sin horario"}</td>
+                          <td style={styles.td}>{course.nombre}</td>
+                          <td style={styles.td}>{course.seccion}</td>
+                          <td style={styles.td}>{course.horario}</td>
                           <td style={styles.td}>
-                            {Array.isArray(course.dias) && course.dias.length > 0
-                              ? course.dias.join(", ")
-                              : "Sin dias"}
-                          </td>
-                          <td style={styles.td}>
-                            {course.id ? (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveCourse(course.id)}
-                                style={styles.removeButton}
-                              >
-                                Quitar
-                              </button>
-                            ) : (
-                              <span style={styles.inlineHint}>Vista integrada</span>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCourse(course.id)}
+                              style={styles.removeButton}
+                              className="responsive-button-full-mobile"
+                              disabled={saving}
+                            >
+                              Quitar
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -417,9 +506,7 @@ const EstudiantesTable = ({ estudiantes }) => {
                   </table>
                 </div>
               ) : (
-                <div style={styles.emptyCourses}>
-                  Este estudiante todavia no tiene cursos asignados en la vista actual.
-                </div>
+                <div style={styles.emptyCourses}>Sin cursos asignados.</div>
               )}
             </div>
           </>
@@ -445,6 +532,70 @@ const styles = {
   },
   sidebarHeader: {
     marginBottom: "18px",
+  },
+  detailGridFull: {
+    display: "block",
+  },
+  detailPanel: {
+    background: "#f8fbff",
+    border: "1px solid #e0ecff",
+    borderRadius: "22px",
+    padding: "20px",
+  },
+  panelTitle: {
+    marginTop: 0,
+    marginBottom: "16px",
+    color: "#0f172a",
+    fontSize: "18px",
+  },
+  detailList: {
+    display: "grid",
+    gap: "12px",
+  },
+  detailLine: {
+    display: "grid",
+    gridTemplateColumns: "160px 1fr",
+    gap: "12px",
+    alignItems: "center",
+    paddingBottom: "12px",
+    borderBottom: "1px solid #e6edf7",
+  },
+  detailLabel: {
+    color: "#64748b",
+    fontWeight: "600",
+  },
+  detailValueContainer: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    width: "100%",
+  },
+  detailValue: {
+    color: "#0f172a",
+    fontWeight: "700",
+  },
+  inlineInput: {
+    border: "1px solid #cbd5e1",
+    borderRadius: "14px",
+    padding: "12px 14px",
+    fontSize: "14px",
+    background: "#ffffff",
+    color: "#0f172a",
+    boxShadow: "0 6px 18px rgba(148, 163, 184, 0.08)",
+    width: "100%",
+  },
+  editIconButton: {
+    background: "none",
+    border: "1px solid #dbeafe",
+    color: "#1d4ed8",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "700",
+    padding: "6px 10px",
+    borderRadius: "999px",
+    transition: "background 0.2s",
+    flexShrink: 0,
   },
   sectionBadge: {
     display: "inline-flex",
@@ -566,115 +717,6 @@ const styles = {
     fontSize: "26px",
     fontWeight: "800",
   },
-  detailGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "18px",
-  },
-  detailPanel: {
-    background: "#f8fbff",
-    border: "1px solid #e0ecff",
-    borderRadius: "22px",
-    padding: "20px",
-  },
-  panelTitle: {
-    marginTop: 0,
-    marginBottom: "16px",
-    color: "#0f172a",
-    fontSize: "18px",
-  },
-  detailList: {
-    display: "grid",
-    gap: "12px",
-  },
-  detailLine: {
-    display: "grid",
-    gridTemplateColumns: "160px 1fr",
-    gap: "12px",
-    alignItems: "center",
-    paddingBottom: "12px",
-    borderBottom: "1px solid #e6edf7",
-  },
-  detailLabel: {
-    color: "#64748b",
-    fontWeight: "600",
-  },
-  detailValue: {
-    color: "#0f172a",
-    fontWeight: "700",
-  },
-  editorGrid: {
-    display: "grid",
-    gap: "14px",
-  },
-  editorField: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-  editorLabel: {
-    color: "#334155",
-    fontSize: "13px",
-    fontWeight: "700",
-  },
-  editorInput: {
-    border: "1px solid #cbd5e1",
-    borderRadius: "14px",
-    padding: "12px 14px",
-    fontSize: "14px",
-    background: "#ffffff",
-    color: "#0f172a",
-    boxShadow: "0 6px 18px rgba(148, 163, 184, 0.08)",
-  },
-  statusEditor: {
-    marginTop: "18px",
-    padding: "16px",
-    borderRadius: "18px",
-    background: "#ffffff",
-    border: "1px solid #dbeafe",
-    display: "flex",
-    justifyContent: "space-between",
-    gap: "14px",
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  statusHelper: {
-    margin: "4px 0 0",
-    color: "#64748b",
-    fontSize: "13px",
-  },
-  toggleShell: {
-    minWidth: "140px",
-    border: "none",
-    borderRadius: "999px",
-    padding: "8px 12px",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "10px",
-    cursor: "pointer",
-    fontWeight: "700",
-  },
-  toggleShellActive: {
-    background: "#dcfce7",
-    color: "#166534",
-  },
-  toggleShellInactive: {
-    background: "#fee2e2",
-    color: "#b91c1c",
-  },
-  toggleKnob: {
-    width: "20px",
-    height: "20px",
-    borderRadius: "999px",
-    background: "currentColor",
-    opacity: 0.2,
-  },
-  toggleKnobActive: {
-    opacity: 0.35,
-  },
-  toggleText: {
-    fontSize: "14px",
-  },
   courseCard: {
     background: "#ffffff",
     borderRadius: "26px",
@@ -694,12 +736,6 @@ const styles = {
     margin: 0,
     color: "#0f172a",
     fontSize: "26px",
-  },
-  courseSubtitle: {
-    marginTop: "8px",
-    marginBottom: 0,
-    color: "#64748b",
-    lineHeight: "1.6",
   },
   assignBox: {
     display: "flex",
@@ -744,6 +780,7 @@ const styles = {
   courseTable: {
     width: "100%",
     borderCollapse: "collapse",
+    minWidth: "620px",
   },
   th: {
     textAlign: "left",

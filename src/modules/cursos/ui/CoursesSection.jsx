@@ -12,13 +12,30 @@ import {
 import {
   buildCourseSchedule,
   DAYS,
-  getCourseStatusLabel,
   getCourseValidationMessage,
   HOURS_24,
   MINUTES,
 } from "../domain/courseRules";
 import { auth } from "../../../firebase/firebase";
 import { getUserFromDB } from "../../auth-registro/infrastructure/FirebaseAuthRepository";
+
+const StatusSwitch = ({ checked, onChange }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={checked ? "Desactivar curso" : "Activar curso"}
+    className={`course-status-switch ${checked ? "is-active" : "is-inactive"}`}
+    onClick={onChange}
+  >
+    <span className="course-status-switch__track">
+      <span className="course-status-switch__thumb" />
+    </span>
+    <span className="course-status-switch__label">
+      {checked ? "Activo" : "Inactivo"}
+    </span>
+  </button>
+);
 
 const buildTeacherName = (registeredUser, firebaseUser) => {
   const fullName = `${registeredUser?.nombres || ""} ${registeredUser?.apellidos || ""}`.trim();
@@ -275,15 +292,22 @@ const CoursesSection = () => {
       {error && <div style={styles.errorBox}>{error}</div>}
 
       {currentTeacher?.nombre && (
-        <div style={styles.teacherBadge}>Catedratico activo: {currentTeacher.nombre}</div>
+        <div style={styles.teacherBadge} className="responsive-inline-badge">
+          Catedratico activo: {currentTeacher.nombre}
+        </div>
       )}
 
-      <div style={styles.toolbar}>
-        <button type="button" style={styles.primaryButton} onClick={abrirNuevo}>
+      <div style={styles.toolbar} className="responsive-stack-tablet responsive-gap-md">
+        <button
+          type="button"
+          style={styles.primaryButton}
+          className="responsive-button-full-mobile"
+          onClick={abrirNuevo}
+        >
           Nuevo Curso
         </button>
 
-        <div style={styles.toolbarControls}>
+        <div style={styles.toolbarControls} className="responsive-toolbar-controls">
           <select
             value={mostrar}
             onChange={(e) => {
@@ -291,6 +315,7 @@ const CoursesSection = () => {
               setPaginaActual(1);
             }}
             style={styles.select}
+            className="responsive-input"
           >
             <option value={5}>5</option>
             <option value={10}>10</option>
@@ -305,17 +330,18 @@ const CoursesSection = () => {
               setPaginaActual(1);
             }}
             style={styles.searchInput}
+            className="responsive-input"
           />
         </div>
       </div>
 
-      <div style={styles.card}>
+      <div style={styles.card} className="responsive-card-shell">
         {loading ? (
           <div style={styles.loading}>Cargando cursos...</div>
         ) : (
           <>
-            <div style={styles.tableContainer}>
-              <table style={styles.table}>
+            <div style={styles.tableContainer} className="responsive-table-scroll">
+              <table style={styles.table} className="responsive-table courses-table">
                 <thead>
                   <tr>
                     <th style={styles.th}>Curso</th>
@@ -341,26 +367,26 @@ const CoursesSection = () => {
                         <td style={styles.td}>{course.aula}</td>
                         <td style={styles.td}>{(course.dias || []).join(", ")}</td>
                         <td style={styles.td}>{course.horario}</td>
-                        <td style={styles.td}>{getCourseStatusLabel(course.estado)}</td>
                         <td style={styles.td}>
-                          <div style={styles.actionRow}>
+                          <StatusSwitch
+                            checked={Boolean(course.estado)}
+                            onChange={() => handleToggleStatus(course)}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <div style={styles.actionRow} className="responsive-action-row">
                             <button
                               type="button"
                               style={styles.smallButton}
+                              className="responsive-button-full-mobile"
                               onClick={() => abrirEditar(course)}
                             >
                               Editar
                             </button>
                             <button
                               type="button"
-                              style={styles.smallButton}
-                              onClick={() => handleToggleStatus(course)}
-                            >
-                              Estado
-                            </button>
-                            <button
-                              type="button"
                               style={styles.deleteButton}
+                              className="responsive-button-full-mobile"
                               onClick={() => handleDelete(course)}
                             >
                               Eliminar
@@ -380,17 +406,18 @@ const CoursesSection = () => {
               </table>
             </div>
 
-            <div style={styles.footer}>
-              <span style={styles.mutedText}>
+            <div style={styles.footer} className="responsive-stack-tablet responsive-gap-md">
+              <span style={styles.mutedText} className="responsive-text-block">
                 Mostrando {cursosFiltrados.length === 0 ? 0 : inicio + 1} a{" "}
                 {Math.min(inicio + mostrar, cursosFiltrados.length)} de {cursosFiltrados.length}{" "}
                 registros
               </span>
 
-              <div style={styles.actionRow}>
+              <div style={styles.actionRow} className="responsive-action-row">
                 <button
                   type="button"
                   style={styles.smallButton}
+                  className="responsive-button-full-mobile"
                   disabled={paginaActual === 1}
                   onClick={() => setPaginaActual((prev) => Math.max(1, prev - 1))}
                 >
@@ -400,6 +427,7 @@ const CoursesSection = () => {
                 <button
                   type="button"
                   style={styles.smallButton}
+                  className="responsive-button-full-mobile"
                   disabled={paginaActual === totalPaginas}
                   onClick={() => setPaginaActual((prev) => Math.min(totalPaginas, prev + 1))}
                 >
@@ -413,47 +441,73 @@ const CoursesSection = () => {
 
       {modalOpen && (
         <div style={styles.overlay}>
-          <div style={styles.modal}>
+          <div style={styles.modal} className="responsive-modal">
             <h2 style={styles.modalTitle}>{editando ? "Editar Curso" : "Nuevo Curso"}</h2>
 
-            <div style={styles.formGrid}>
-              <div style={styles.field}>
+            <div style={styles.formGrid} className="responsive-form-grid">
+              <div style={styles.field} className="responsive-field">
                 <label style={styles.label}>Codigo</label>
-                <input name="codigo" value={form.codigo} onChange={handleChange} style={styles.input} />
+                <input
+                  name="codigo"
+                  value={form.codigo}
+                  onChange={handleChange}
+                  style={styles.input}
+                  className="responsive-input"
+                />
               </div>
-              <div style={styles.field}>
+              <div style={styles.field} className="responsive-field">
                 <label style={styles.label}>Nombre</label>
-                <input name="nombre" value={form.nombre} onChange={handleChange} style={styles.input} />
+                <input
+                  name="nombre"
+                  value={form.nombre}
+                  onChange={handleChange}
+                  style={styles.input}
+                  className="responsive-input"
+                />
               </div>
-              <div style={styles.field}>
+              <div style={styles.field} className="responsive-field">
                 <label style={styles.label}>Seccion</label>
-                <input name="seccion" value={form.seccion} onChange={handleChange} style={styles.input} />
+                <input
+                  name="seccion"
+                  value={form.seccion}
+                  onChange={handleChange}
+                  style={styles.input}
+                  className="responsive-input"
+                />
               </div>
-              <div style={styles.field}>
+              <div style={styles.field} className="responsive-field">
                 <label style={styles.label}>Docente</label>
                 <input
                   name="docente"
                   value={form.docente}
                   onChange={handleChange}
                   style={{ ...styles.input, ...styles.inputDisabled }}
+                  className="responsive-input"
                   disabled
                   readOnly
                 />
               </div>
-              <div style={styles.field}>
+              <div style={styles.field} className="responsive-field">
                 <label style={styles.label}>Aula</label>
-                <input name="aula" value={form.aula} onChange={handleChange} style={styles.input} />
+                <input
+                  name="aula"
+                  value={form.aula}
+                  onChange={handleChange}
+                  style={styles.input}
+                  className="responsive-input"
+                />
               </div>
             </div>
 
-            <div style={styles.field}>
+            <div style={styles.field} className="responsive-field">
               <label style={styles.label}>Dias del curso</label>
-              <div style={styles.daysGrid}>
+              <div style={styles.daysGrid} className="responsive-days-grid">
                 {DAYS.map((day) => (
                   <button
                     key={day}
                     type="button"
                     onClick={() => handleDayChange(day)}
+                    className="responsive-day-button"
                     style={{
                       ...styles.dayButton,
                       ...(form.dias.includes(day) ? styles.dayButtonActive : {}),
@@ -465,15 +519,16 @@ const CoursesSection = () => {
               </div>
             </div>
 
-            <div style={styles.timeGrid}>
-              <div style={styles.field}>
+            <div style={styles.timeGrid} className="responsive-form-grid">
+              <div style={styles.field} className="responsive-field">
                 <label style={styles.label}>Hora inicio</label>
-                <div style={styles.timeRow}>
+                <div style={styles.timeRow} className="responsive-time-row">
                   <select
                     name="horaInicioHora"
                     value={form.horaInicioHora}
                     onChange={handleChange}
                     style={styles.select}
+                    className="responsive-input"
                   >
                     <option value="">Hora</option>
                     {HOURS_24.map((hour) => (
@@ -487,6 +542,7 @@ const CoursesSection = () => {
                     value={form.horaInicioMinuto}
                     onChange={handleChange}
                     style={styles.select}
+                    className="responsive-input"
                   >
                     {MINUTES.map((minute) => (
                       <option key={minute} value={minute}>
@@ -497,14 +553,15 @@ const CoursesSection = () => {
                 </div>
               </div>
 
-              <div style={styles.field}>
+              <div style={styles.field} className="responsive-field">
                 <label style={styles.label}>Hora fin</label>
-                <div style={styles.timeRow}>
+                <div style={styles.timeRow} className="responsive-time-row">
                   <select
                     name="horaFinHora"
                     value={form.horaFinHora}
                     onChange={handleChange}
                     style={styles.select}
+                    className="responsive-input"
                   >
                     <option value="">Hora</option>
                     {HOURS_24.map((hour) => (
@@ -518,6 +575,7 @@ const CoursesSection = () => {
                     value={form.horaFinMinuto}
                     onChange={handleChange}
                     style={styles.select}
+                    className="responsive-input"
                   >
                     {MINUTES.map((minute) => (
                       <option key={minute} value={minute}>
@@ -539,8 +597,13 @@ const CoursesSection = () => {
               <div style={styles.inlineError}>{formError || liveValidationMessage}</div>
             )}
 
-            <div style={styles.modalActions}>
-              <button type="button" style={styles.smallButton} onClick={cerrarModal}>
+            <div style={styles.modalActions} className="responsive-action-row">
+              <button
+                type="button"
+                style={styles.smallButton}
+                className="responsive-button-full-mobile"
+                onClick={cerrarModal}
+              >
                 Cancelar
               </button>
               <button
@@ -549,6 +612,7 @@ const CoursesSection = () => {
                   ...styles.primaryButton,
                   ...(liveValidationMessage ? styles.primaryButtonDisabled : {}),
                 }}
+                className="responsive-button-full-mobile"
                 onClick={handleSaveCourse}
                 disabled={Boolean(liveValidationMessage)}
               >
@@ -640,6 +704,7 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
+    minWidth: "860px",
   },
   th: {
     textAlign: "left",

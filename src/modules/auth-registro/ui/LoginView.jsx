@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { loginWithEmail, loginWithGoogle } from "../application/AuthService";
 import { ROUTES } from "../../../shared/utils/routePaths";
+import { isStudentRole } from "../../Estudiante/domain/estudianteRules";
 
 const getLoginErrorMessage = (error) => {
   if (error.message === "Completa todos los campos") {
@@ -37,6 +38,10 @@ const LoginView = () => {
 
   const navigate = useNavigate();
 
+  const navigateByRole = (user) => {
+    navigate(isStudentRole(user?.rol) ? ROUTES.students : ROUTES.home);
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -44,8 +49,8 @@ const LoginView = () => {
       setLoading(true);
       setError("");
 
-      await loginWithEmail(email, password);
-      navigate(ROUTES.home);
+      const user = await loginWithEmail(email, password);
+      navigateByRole(user);
     } catch (err) {
       console.error(err);
       setError(getLoginErrorMessage(err));
@@ -67,7 +72,7 @@ const LoginView = () => {
         return;
       }
 
-      navigate(ROUTES.home);
+      navigateByRole(result.user);
     } catch (err) {
       console.error(err);
       setError("Error al iniciar sesion con Google");
@@ -77,9 +82,10 @@ const LoginView = () => {
   };
 
   return (
-    <motion.div style={styles.container}>
+    <motion.div style={styles.container} className="auth-page auth-page-login">
       <motion.div
         style={styles.loginBox}
+        className="auth-card"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
@@ -138,24 +144,26 @@ const LoginView = () => {
         )}
 
         {showEmailForm && (
-          <form onSubmit={handleLogin} style={styles.form}>
-            <div style={styles.inputWrapper}>
+          <form onSubmit={handleLogin} style={styles.form} className="responsive-form-stack">
+            <div style={styles.inputWrapper} className="responsive-field">
               <input
                 type="email"
                 placeholder="Correo electronico"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={styles.input}
+                className="responsive-input"
               />
             </div>
 
-            <div style={styles.inputWrapper}>
+            <div style={styles.inputWrapper} className="responsive-field">
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="Contrasena"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={styles.input}
+                className="responsive-input"
               />
 
               <button
@@ -170,6 +178,7 @@ const LoginView = () => {
             <motion.button
               type="submit"
               style={styles.button}
+              className="responsive-button-full-mobile"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.95 }}
               disabled={loading}
@@ -198,7 +207,7 @@ const styles = {
   container: {
     height: "100vh",
     width: "100vw",
-    background: "linear-gradient(135deg, #0D47A1, #2196F3)",
+    background: "radial-gradient(circle at top left, rgba(210, 225, 243, 0.8), transparent 32%), linear-gradient(135deg, #0D47A1, #2196F3)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",

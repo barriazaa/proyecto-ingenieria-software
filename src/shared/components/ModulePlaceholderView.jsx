@@ -9,11 +9,11 @@ const ModulePlaceholderView = ({
   const navigate = useNavigate();
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
+    <div style={styles.page} className="placeholder-page">
+      <div style={styles.card} className="responsive-card-shell placeholder-card">
         <span style={styles.badge}>Modulo en estructura hexagonal</span>
-        <h1 style={styles.title}>{title}</h1>
-        <p style={styles.description}>{description}</p>
+        <h1 style={styles.title} className="responsive-title-lg">{title}</h1>
+        <p style={styles.description} className="responsive-text-block">{description}</p>
 
         <div style={styles.list}>
           {highlights.map((item) => (
@@ -23,7 +23,12 @@ const ModulePlaceholderView = ({
           ))}
         </div>
 
-        <button type="button" style={styles.button} onClick={() => navigate(backRoute)}>
+        <button
+          type="button"
+          style={styles.button}
+          className="responsive-button-full-mobile"
+          onClick={() => navigate(backRoute)}
+        >
           Volver
         </button>
       </div>

@@ -9,7 +9,6 @@ import {
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
 const provider = new GoogleAuthProvider();
-const PRIMARY_USERS_COLLECTION = "users";
 const LEGACY_USERS_COLLECTION = "usuarios";
 
 export const loginWithEmailFirebase = async (email, password) => {
@@ -34,7 +33,7 @@ const getDocumentData = async (collectionName, uid) => {
 };
 
 export const getUserFromDB = async (uid) => {
-  const user = await getDocumentData(PRIMARY_USERS_COLLECTION, uid);
+  const user = await getDocumentData(LEGACY_USERS_COLLECTION, uid);
 
   if (user) {
     return user;
@@ -44,7 +43,7 @@ export const getUserFromDB = async (uid) => {
 };
 
 export const saveUserToDB = async (user) => {
-  const userRef = doc(db, PRIMARY_USERS_COLLECTION, user.uid);
+  const userRef = doc(db, LEGACY_USERS_COLLECTION, user.uid);
   await setDoc(userRef, user);
 };
 

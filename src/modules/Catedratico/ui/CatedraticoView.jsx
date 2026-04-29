@@ -24,6 +24,15 @@ const CatedraticoView = () => {
     reporteria: "Reporteria",
   };
 
+  const handleStudentUpdated = (updatedStudent) => {
+    setDashboard((currentDashboard) => ({
+      ...currentDashboard,
+      estudiantes: currentDashboard.estudiantes.map((student) =>
+        student.id === updatedStudent.id ? updatedStudent : student
+      ),
+    }));
+  };
+
   const renderSection = () => {
     switch (activeSection) {
       case "cursos":
@@ -32,7 +41,12 @@ const CatedraticoView = () => {
         return <ReporteriaSection reporteria={dashboard.reporteria} />;
       case "estudiantes":
       default:
-        return <EstudiantesTable estudiantes={dashboard.estudiantes} />;
+        return (
+          <EstudiantesTable
+            estudiantes={dashboard.estudiantes}
+            onStudentUpdated={handleStudentUpdated}
+          />
+        );
     }
   };
 
@@ -63,16 +77,17 @@ const CatedraticoView = () => {
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
-        <h1 style={styles.title}>Panel del Catedratico</h1>
+    <div style={styles.page} className="teacher-dashboard-page">
+      <div style={styles.container} className="responsive-page-wrapper">
+        <h1 style={styles.title} className="responsive-title-lg">Panel del Catedratico</h1>
 
-        <div style={styles.grid}>
+        <div style={styles.grid} className="dashboard-cards-grid">
           {dashboard.cards.map((card) => (
             <button
               key={card.id}
               type="button"
               style={{ ...styles.card, borderColor: card.accent }}
+              className="dashboard-summary-card"
               onClick={() => setActiveSection(card.id)}
             >
               <span style={{ ...styles.cardValue, color: card.accent }}>{card.value}</span>
@@ -83,7 +98,7 @@ const CatedraticoView = () => {
           ))}
         </div>
 
-        <div id="dynamic-content" style={styles.panel}>
+        <div id="dynamic-content" style={styles.panel} className="responsive-card-shell">
           <h2 style={styles.panelTitle}>{sectionTitles[activeSection] || "Estudiantes"}</h2>
           {renderSection()}
         </div>

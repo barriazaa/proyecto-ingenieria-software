@@ -1,18 +1,16 @@
-import { useNavigate } from "react-router-dom";
-import { ROUTES } from "../../../shared/utils/routePaths";
 import CoursesSection from "./CoursesSection";
 
 const CoursesView = () => {
-  const navigate = useNavigate();
-
   return (
-    <div style={styles.page}>
-      <div style={styles.wrapper}>
-        <div style={styles.header}>
+    <div style={styles.page} className="courses-view-page">
+      <div style={styles.wrapper} className="responsive-page-wrapper">
+        <div style={styles.header} className="responsive-stack-tablet responsive-gap-md">
           <div>
             <span style={styles.badge}>Modulo cursos</span>
-            <h1 style={styles.title}>Gestion de Cursos</h1>
-            <p style={styles.subtitle}>
+            <h1 style={styles.title} className="responsive-title-lg">
+              Gestion de Cursos
+            </h1>
+            <p style={styles.subtitle} className="responsive-text-block">
               Valida conflictos por aula, dia y franja horaria antes de guardar.
             </p>
           </div>
