@@ -98,12 +98,12 @@ const QRScannerPanel = () => {
         { facingMode: "environment" }, 
         { 
           fps: 20, 
-          // HACEMOS EL CUADRO DINÁMICO: 75% del ancho disponible de la pantalla
+          // HACEMOS EL CUADRO DINÁMICO: 90% del ancho disponible para máxima visibilidad
           qrbox: (viewfinderWidth, viewfinderHeight) => {
             const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
             return {
-              width: Math.floor(minEdgeSize * 0.75),
-              height: Math.floor(minEdgeSize * 0.75)
+              width: Math.floor(minEdgeSize * 0.90),
+              height: Math.floor(minEdgeSize * 0.90)
             };
           },
           aspectRatio: 1.0 // Fuerza a que la cámara se vea cuadrada
@@ -156,11 +156,11 @@ const QRScannerPanel = () => {
         </div>
       )}
 
-      {/* CONTENEDOR RESPONSIVO: Ocupa el 100% hasta un máximo de 380px */}
+      {/* CONTENEDOR MAXIMIZADO: 95% de ancho y hasta 500px para leer el pizarrón */}
       <div style={{
-        width: "100%", 
-        maxWidth: "380px", // Más grande que los 300px anteriores
-        aspectRatio: "1 / 1", // Mantiene el contenedor perfectamente cuadrado
+        width: "95%", 
+        maxWidth: "500px", 
+        aspectRatio: "1 / 1", 
         margin: "0 auto", 
         borderRadius: "24px",
         overflow: "hidden", 
@@ -172,19 +172,21 @@ const QRScannerPanel = () => {
         <div id="student-qr-reader" style={{ width: "100%", height: "100%" }}></div>
       </div>
 
-      {/* CONTROL DE ZOOM */}
+      {/* CONTROL DE ZOOM MEJORADO CON CLASE CSS Y STOPPROPAGATION */}
       {hasZoom && !loading && (
-        <div style={{ width: "100%", maxWidth: "280px", margin: "20px auto 0", textAlign: "center" }}>
+        <div style={{ width: "100%", maxWidth: "300px", margin: "20px auto 0", textAlign: "center" }}>
           <label style={{ display: "block", fontSize: "12px", color: "#64748b", marginBottom: "5px", fontWeight: "600" }}>
             Zoom: {zoomSettings.current.toFixed(1)}x
           </label>
           <input
             type="range"
+            className="zoom-slider"
             min={zoomSettings.min}
             max={zoomSettings.max}
             step={zoomSettings.step}
             value={zoomSettings.current}
             onChange={handleZoomChange}
+            onPointerDown={(e) => e.stopPropagation()} 
             style={{ width: "100%", cursor: "pointer", accentColor: "#2563eb" }}
           />
         </div>

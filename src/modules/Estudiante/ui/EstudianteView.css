@@ -185,6 +185,44 @@
   box-shadow: none !important;
 }
 
+/* --- 7. CONTROL DE ZOOM Y GESTOS --- */
+.student-qr-panel {
+  touch-action: pan-y; /* Bloquea el pinch-to-zoom pero permite scroll vertical */
+}
+
+.zoom-slider {
+  touch-action: none; /* Evita que el navegador mueva la página al deslizar */
+  -webkit-appearance: none;
+  appearance: none;
+  height: 10px;
+  border-radius: 10px;
+  background: #e2e8f0;
+  outline: none;
+  margin: 15px 0;
+}
+
+.zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.zoom-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
 /* --- RESPONSIVO --- */
 @media (max-width: 650px) {
   .student-stats-grid { grid-template-columns: 1fr; }
@@ -196,8 +234,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #eff6ff; /* Un azul muy clarito */
-  color: #1d4ed8;       /* El azul principal de tu app */
+  background: #eff6ff; 
+  color: #1d4ed8;      
   border: none;
   padding: 8px 16px;
   border-radius: 10px;
@@ -211,6 +249,6 @@
 
 .student-back-button:hover {
   background: #dbeafe;
-  transform: translateX(-4px); /* Pequeño efecto de empuje hacia la izquierda */
+  transform: translateX(-4px); 
   box-shadow: 0 4px 10px rgba(29, 78, 216, 0.1);
 }

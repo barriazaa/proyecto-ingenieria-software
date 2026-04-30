@@ -111,10 +111,14 @@ class FirebaseEstudianteRepository {
 
   // Inscribir alumno automáticamente (por defecto en la colección primaria)
   async enrollStudentInCourse(studentUid, courseId) {
-    const ref = doc(db, PRIMARY_USERS_COLLECTION, studentUid);
-    await updateDoc(ref, {
+    // Usamos la colección "usuarios" directamente
+    const ref = doc(db, "usuarios", studentUid);
+    
+    // Usamos setDoc con { merge: true } en lugar de updateDoc.
+    // Esto es más seguro: si no tienes el campo "cursosAsignados", lo crea sin dar error.
+    await setDoc(ref, {
       cursosAsignados: arrayUnion(courseId)
-    });
+    }, { merge: true });
   }
 
   // Validación de duplicados para el mismo día usando el Documento Agrupado
