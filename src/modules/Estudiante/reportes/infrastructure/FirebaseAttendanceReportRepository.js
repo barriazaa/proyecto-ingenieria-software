@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from "firebase/firestore"; // Añadimos query y where
+import { collection, getDocs, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../../../firebase/firebase";
 
 const PRIMARY_ATTENDANCES_COLLECTION = "attendances";
@@ -45,6 +45,44 @@ class FirebaseAttendanceReportRepository {
     }
   }
 
+  subscribeToStudentAttendances(student, onData, onError) {
+    const studentUid = student?.uid || student?.id;
+
+    if (!studentUid) {
+      console.warn("No se encontró UID del estudiante para escuchar reportes.");
+      return () => {};
+    }
+
+    const groupedQuery = query(
+      collection(db, GROUPED_ATTENDANCES_COLLECTION),
+      where("estudianteUid", "==", studentUid)
+    );
+
+    return onSnapshot(
+      groupedQuery,
+      async (snapshot) => {
+        try {
+          if (!snapshot.empty) {
+            onData(
+              snapshot.docs.map((documentSnapshot) => ({
+                id: documentSnapshot.id,
+                ...documentSnapshot.data(),
+              }))
+            );
+            return;
+          }
+
+          const legacyAttendances = await this._getLegacyAttendances(studentUid);
+          onData(legacyAttendances);
+        } catch (error) {
+          console.error("Error escuchando asistencias del estudiante:", error);
+          onError?.(error);
+        }
+      },
+      onError
+    );
+  }
+
   // Método privado para buscar en colecciones viejas sin tumbar la app
   async _getLegacyAttendances(studentUid) {
     const results = [];
@@ -57,7 +95,7 @@ class FirebaseAttendanceReportRepository {
         const q = query(collection(db, collName), where("estudianteUid", "==", studentUid));
         const snap = await getDocs(q);
         snap.forEach(doc => results.push({ id: doc.id, ...doc.data() }));
-      } catch (e) {
+      } catch {
         // Si una colección no existe o falla, seguimos con la otra
         continue;
       }

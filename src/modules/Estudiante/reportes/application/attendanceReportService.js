@@ -18,7 +18,7 @@ class AttendanceReportService {
     // Si existe el documento, tomamos el array 'fechasAsistencia' y lo preparamos.
     // Si no existe, pasamos un array vacío para que el reporte no truene y dé 0%.
     const attendanceDates = courseRecord 
-      ? courseRecord.fechasAsistencia.map(fecha => ({ fecha })) 
+      ? (courseRecord.fechasAsistencia || []).map(fecha => ({ fecha })) 
       : [];
 
     // 3. Llamamos a tus reglas de dominio pasándole la lista de fechas.

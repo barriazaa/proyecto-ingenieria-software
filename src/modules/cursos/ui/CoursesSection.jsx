@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import QrGenerator from "./QrGenerator"; 
+import CourseAttendanceReport from "../../Catedratico/ui/CourseAttendanceReport";
 import {
   createCourse,
   deleteCourse,
@@ -69,6 +70,7 @@ const CoursesSection = () => {
   const [formError, setFormError] = useState("");
   const [currentTeacher, setCurrentTeacher] = useState(null);
   const [selectedCourseForQr, setSelectedCourseForQr] = useState(null);
+  const [selectedCourseForAttendance, setSelectedCourseForAttendance] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -168,14 +170,14 @@ const CoursesSection = () => {
     try {
       await deleteCourse(course);
       setCursos((p) => p.filter((item) => item.id !== course.id));
-    } catch (err) { alert("Error al eliminar."); }
+    } catch { alert("Error al eliminar."); }
   };
 
   const handleToggleStatus = async (course) => {
     try {
       const updated = await toggleCourseStatus(course);
       setCursos((p) => p.map((item) => (item.id === updated.id ? updated : item)));
-    } catch (err) { alert("Error al cambiar estado."); }
+    } catch { alert("Error al cambiar estado."); }
   };
 
   // Lógica para el toggle de Geocerca
@@ -186,7 +188,7 @@ const CoursesSection = () => {
       setCursos((p) => p.map((item) => 
         item.id === course.id ? { ...item, requiereGPS: !item.requiereGPS } : item
       ));
-    } catch (err) { alert("Error al cambiar requerimiento de GPS."); }
+    } catch { alert("Error al cambiar requerimiento de GPS."); }
   };
 
   return (
@@ -256,6 +258,7 @@ const CoursesSection = () => {
                               <line x1="7" y1="17" x2="7.01" y2="17" /><line x1="17" y1="17" x2="17.01" y2="17" />
                             </svg>
                           </button>
+                          <button type="button" style={styles.smallButton} onClick={() => setSelectedCourseForAttendance(course)}>Asistencias</button>
                           <button type="button" style={styles.smallButton} onClick={() => abrirEditar(course)}>Editar</button>
                           <button type="button" style={styles.deleteButton} onClick={() => handleDelete(course)}>Eliminar</button>
                         </div>
@@ -336,6 +339,13 @@ const CoursesSection = () => {
       )}
 
       {selectedCourseForQr && <QrGenerator course={selectedCourseForQr} currentTeacher={currentTeacher} onClose={() => setSelectedCourseForQr(null)} />}
+      {selectedCourseForAttendance && (
+        <CourseAttendanceReport
+          course={selectedCourseForAttendance}
+          currentTeacher={currentTeacher}
+          onClose={() => setSelectedCourseForAttendance(null)}
+        />
+      )}
     </>
   );
 };

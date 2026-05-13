@@ -52,8 +52,72 @@ const normalizeDateKey = (value) => {
   return date ? toDateInputValue(date) : "";
 };
 
+const formatDateLabel = (dateKey) => {
+  const [year, month, day] = dateKey.split("-");
+  return `${day}/${month}/${year}`;
+};
+
 const getCourseDaySet = (course) =>
   new Set((course?.dias || []).map((day) => normalizeText(day)));
+
+const getCourseStartDateKey = (course) => {
+  const candidates = [
+    course?.fechaInicio,
+    course?.startDate,
+    course?.createdAt,
+    course?.created_at,
+  ];
+
+  return candidates.map(normalizeDateKey).find(Boolean) || "";
+};
+
+const normalizeRangeOrder = (range) => {
+  const startDate = normalizeDateKey(range?.startDate);
+  const endDate = normalizeDateKey(range?.endDate);
+
+  if (startDate && endDate && startDate > endDate) {
+    return { startDate: endDate, endDate: startDate };
+  }
+
+  return { startDate, endDate };
+};
+
+const getEffectiveClassRange = (course, attendanceDateKeys, range) => {
+  const selectedRange = normalizeRangeOrder(range);
+
+  if (selectedRange.startDate && selectedRange.endDate) {
+    return selectedRange;
+  }
+
+  const sortedDateKeys = [...attendanceDateKeys].sort();
+  const firstAttendanceDate = sortedDateKeys[0] || "";
+  const lastAttendanceDate = sortedDateKeys[sortedDateKeys.length - 1] || "";
+  const courseStartDate = getCourseStartDateKey(course);
+  const today = toDateInputValue(new Date());
+
+  if (selectedRange.startDate) {
+    return {
+      startDate: selectedRange.startDate,
+      endDate: selectedRange.endDate || today,
+    };
+  }
+
+  if (selectedRange.endDate) {
+    return {
+      startDate: courseStartDate || firstAttendanceDate || selectedRange.endDate,
+      endDate: selectedRange.endDate,
+    };
+  }
+
+  if (!courseStartDate && !firstAttendanceDate && !lastAttendanceDate) {
+    return { startDate: "", endDate: "" };
+  }
+
+  return {
+    startDate: courseStartDate || firstAttendanceDate || lastAttendanceDate,
+    endDate: lastAttendanceDate || today,
+  };
+};
 
 // --- NUEVA FUNCIÓN: Formato Profesional [Código] - Nombre ---
 export const getCourseDisplayName = (course) => {
@@ -64,8 +128,9 @@ export const getCourseDisplayName = (course) => {
 
 // --- TU FILTRO DE ASISTENCIAS (Actualizado para el array agrupado) ---
 export const filterAttendancesByCourseAndRange = (attendances, courseId, range) => {
-  const start = parseDate(range.startDate);
-  const end = parseDate(range.endDate);
+  const selectedRange = normalizeRangeOrder(range);
+  const start = parseDate(selectedRange.startDate);
+  const end = parseDate(selectedRange.endDate);
 
   return attendances.filter((attendance) => {
     // Soporte para objetos planos o marcas dentro del array agrupado
@@ -91,8 +156,9 @@ export const filterAttendancesByCourseAndRange = (attendances, courseId, range) 
 
 // --- TU CONTADOR DE CLASES (Con límite de seguridad "Hoy") ---
 export const countCourseClassesInRange = (course, range) => {
-  const start = parseDate(range.startDate);
-  const end = parseDate(range.endDate);
+  const selectedRange = normalizeRangeOrder(range);
+  const start = parseDate(selectedRange.startDate);
+  const end = parseDate(selectedRange.endDate);
   const courseDays = getCourseDaySet(course);
   const today = new Date();
   today.setHours(23, 59, 59, 999);
@@ -116,8 +182,6 @@ export const countCourseClassesInRange = (course, range) => {
 
 // --- TU RESUMEN FINAL (Potenciado) ---
 export const calculateAttendanceSummary = (course, attendances, range) => {
-  const totalClasses = countCourseClassesInRange(course, range);
-  
   // Procesamos la lista de marcas (vengan del array agrupado o de docs sueltos)
   const filteredAttendances = filterAttendancesByCourseAndRange(attendances, course.id, range);
   
@@ -126,18 +190,33 @@ export const calculateAttendanceSummary = (course, attendances, range) => {
       .map((attendance) => normalizeDateKey(attendance.fecha || attendance))
       .filter(Boolean)
   );
+  const effectiveRange = getEffectiveClassRange(course, uniqueAttendanceDates, range);
+  const totalClasses = countCourseClassesInRange(course, effectiveRange);
 
   const attendedClasses = Math.min(uniqueAttendanceDates.size, totalClasses);
   const missedClasses = Math.max(totalClasses - attendedClasses, 0);
   const attendancePercentage =
     totalClasses === 0 ? 0 : Math.round((attendedClasses / totalClasses) * 100);
+  const absencePercentage = totalClasses === 0 ? 0 : 100 - attendancePercentage;
+  const attendanceRows = Array.from(uniqueAttendanceDates)
+    .sort()
+    .reverse()
+    .map((dateKey) => ({
+      id: dateKey,
+      fecha: dateKey,
+      fechaLabel: formatDateLabel(dateKey),
+      estado: "Registrada",
+    }));
 
   return {
     totalClasses,
     attendedClasses,
     missedClasses,
     attendancePercentage,
+    absencePercentage,
+    attendanceRows,
     filteredAttendances,
+    effectiveRange,
     // Inyectamos el nombre que usaremos en el H2 del detalle
     courseDisplayName: getCourseDisplayName(course) 
   };

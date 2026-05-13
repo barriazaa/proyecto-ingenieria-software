@@ -42,6 +42,14 @@ class EstudianteService {
     return AttendanceReportService.getCourseAttendanceSummary(course, attendances, range);
   }
 
+  subscribeToStudentAttendances(student, { onData, onError }) {
+    return FirebaseEstudianteRepository.subscribeToStudentAttendances(
+      student,
+      onData,
+      onError
+    );
+  }
+
   // =====================================================================
   // AQUÍ ESTÁ LA SOLUCIÓN AL ERROR: El puente para los requisitos del curso
   // =====================================================================

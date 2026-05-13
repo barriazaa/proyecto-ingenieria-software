@@ -13,6 +13,7 @@ const AttendancePieChart = ({ summary }) => {
   const total = summary.totalClasses ?? 0;
   const attended = summary.attendedClasses ?? 0;
   const missed = summary.missedClasses ?? 0;
+  const absencePercentage = summary.absencePercentage ?? 0;
 
   // 3. LÓGICA VISUAL:
   // Si hay clases programadas, mostramos verde/rojo. 
@@ -34,11 +35,11 @@ const AttendancePieChart = ({ summary }) => {
       <div className="student-attendance-chart__legend">
         <span>
           <i className="student-attendance-chart__dot student-attendance-chart__dot--green" />
-          Asistencias: {attended}
+          Asistencias: {attended} ({percentage}%)
         </span>
         <span>
           <i className="student-attendance-chart__dot student-attendance-chart__dot--red" />
-          Inasistencias: {missed}
+          Inasistencias: {missed} ({absencePercentage}%)
         </span>
       </div>
     </div>

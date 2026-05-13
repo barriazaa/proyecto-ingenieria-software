@@ -1,6 +1,6 @@
 import { ROUTES } from "../../../shared/utils/routePaths";
 
-export const createCatedraticoCards = (reporteria) => [
+export const createCatedraticoCards = () => [
   {
     id: "estudiantes",
     title: "Estudiantes",
@@ -34,3 +34,31 @@ export const mapStudentsForView = (students) =>
     carnet: student.carnet || "Sin carnet",
     estado: student.estado || "Activo",
   }));
+
+export const getStudentCourseAssignments = (student) => {
+  const assignments =
+    student?.cursosAsignados ||
+    student?.courses ||
+    student?.assignedCourses ||
+    student?.courseIds ||
+    [];
+
+  if (!Array.isArray(assignments)) {
+    return [];
+  }
+
+  return assignments
+    .map((course) =>
+      typeof course === "string"
+        ? course
+        : course?.id || course?.courseId || course?.cursoId
+    )
+    .filter(Boolean);
+};
+
+export const filterStudentsByCourse = (students, courseId) =>
+  students.filter((student) =>
+    getStudentCourseAssignments(student).some(
+      (assignedCourseId) => String(assignedCourseId) === String(courseId)
+    )
+  );

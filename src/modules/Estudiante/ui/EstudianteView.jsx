@@ -5,11 +5,15 @@ import { useNavigate, useParams } from "react-router-dom";
 import { auth } from "../../../firebase/firebase";
 import { ROUTES } from "../../../shared/utils/routePaths";
 import EstudianteService from "../application/estudianteService";
-import { getDefaultDateRange } from "../reportes/domain/attendanceReportRules";
 import CourseDetail from "../reportes/ui/CourseDetail";
 import CourseList from "./CourseList";
 import QRScannerPanel from "./QRScannerPanel";
 import "./EstudianteView.css";
+
+const EMPTY_DATE_RANGE = {
+  startDate: "",
+  endDate: "",
+};
 
 const EstudianteView = () => {
   const navigate = useNavigate();
@@ -17,7 +21,7 @@ const EstudianteView = () => {
   const [student, setStudent] = useState(null);
   const [courses, setCourses] = useState([]);
   const [attendances, setAttendances] = useState([]);
-  const [range, setRange] = useState(getDefaultDateRange());
+  const [range, setRange] = useState(EMPTY_DATE_RANGE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
@@ -26,8 +30,12 @@ const EstudianteView = () => {
 
   useEffect(() => {
     let isMounted = true;
+    let unsubscribeAttendances = () => {};
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      unsubscribeAttendances();
+      setAttendances([]);
+
       if (!firebaseUser) {
         navigate(ROUTES.login);
         return;
@@ -49,6 +57,22 @@ const EstudianteView = () => {
         setStudent(dashboard.student);
         setCourses(dashboard.courses);
         setAttendances(dashboard.attendances);
+        unsubscribeAttendances = EstudianteService.subscribeToStudentAttendances(
+          dashboard.student,
+          {
+            onData: (liveAttendances) => {
+              if (isMounted) {
+                setAttendances(liveAttendances);
+              }
+            },
+            onError: (liveError) => {
+              console.error(liveError);
+              if (isMounted) {
+                setError("No se pudo escuchar tu asistencia en tiempo real.");
+              }
+            },
+          }
+        );
       } catch (loadError) {
         console.error(loadError);
         if (isMounted) {
@@ -63,6 +87,7 @@ const EstudianteView = () => {
 
     return () => {
       isMounted = false;
+      unsubscribeAttendances();
       unsubscribe();
     };
   }, [navigate]);
@@ -89,7 +114,7 @@ const EstudianteView = () => {
     try {
       await signOut(auth);
       navigate(ROUTES.login);
-    } catch (logoutError) {
+    } catch {
       setError("No se pudo cerrar sesion.");
     }
   };

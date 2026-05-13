@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, updateDoc, setDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../firebase/firebase";
 import FirebaseAttendanceReportRepository from "../reportes/infrastructure/FirebaseAttendanceReportRepository";
 
@@ -68,6 +68,14 @@ class FirebaseEstudianteRepository {
 
   async getStudentAttendances(student) {
     return FirebaseAttendanceReportRepository.getStudentAttendances(student);
+  }
+
+  subscribeToStudentAttendances(student, onData, onError) {
+    return FirebaseAttendanceReportRepository.subscribeToStudentAttendances(
+      student,
+      onData,
+      onError
+    );
   }
 
   // --- NUEVOS MÉTODOS PARA ESCÁNER Y REPORTERÍA (AGRUPADOS) ---

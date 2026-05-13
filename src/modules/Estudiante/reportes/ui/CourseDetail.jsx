@@ -1,8 +1,13 @@
-import AttendancePieChart from "./AttendancePieChart"; 
+import AttendancePieChart from "./AttendancePieChart";
+
+const PercentageBadge = ({ label, value, tone }) => (
+  <div className={`student-percentage-badge student-percentage-badge--${tone}`}>
+    <span>{label}</span>
+    <strong>{value}%</strong>
+  </div>
+);
 
 const CourseDetail = ({ course, range, summary, onRangeChange, onBack }) => {
-  // 1. BLINDAJE DE SEGURIDAD: 
-  // Si no hay curso o resumen (mientras carga), mostramos un mensaje amigable
   if (!course || !summary) {
     return (
       <section className="student-panel student-page--center">
@@ -11,22 +16,26 @@ const CourseDetail = ({ course, range, summary, onRangeChange, onBack }) => {
     );
   }
 
+  const attendanceRows = summary.attendanceRows || [];
+  const handleClearRange = () => {
+    onRangeChange("startDate", "");
+    onRangeChange("endDate", "");
+  };
+
   return (
     <section className="student-panel student-course-detail">
-      {/* Botón mejorado visualmente */}
       <button type="button" className="student-back-button" onClick={onBack}>
-        ← Volver a cursos
+        Atrás
       </button>
 
       <div className="student-course-detail__header">
         <div className="student-section-heading">
           <span>Detalle de curso</span>
-          {/* CAMBIO CLAVE: Usamos el nombre profesional generado por el Service/Domain */}
           <h2>{summary.courseDisplayName || course.nombre}</h2>
         </div>
         <div className="student-course-meta">
           <span>{course.horario || "Horario por definir"}</span>
-          <span>{(course.dias || []).join(", ") || "Días por definir"}</span>
+          <span>{(course.dias || []).join(", ") || "Dias por definir"}</span>
         </div>
       </div>
 
@@ -49,25 +58,76 @@ const CourseDetail = ({ course, range, summary, onRangeChange, onBack }) => {
             onChange={(event) => onRangeChange("endDate", event.target.value)}
           />
         </label>
+        <button type="button" className="student-clear-range-button" onClick={handleClearRange}>
+          Limpiar filtro
+        </button>
       </div>
 
-      <div className="student-attendance-summary">
-        {/* Pasamos el summary al gráfico */}
-        <AttendancePieChart summary={summary} />
+      <div className="student-attendance-layout">
+        <div className="student-attendance-summary">
+          <AttendancePieChart summary={summary} />
 
-        <div className="student-stats-grid">
-          <div>
-            <span>Total clases</span>
-            {/* Usamos || 0 para evitar errores si el dato tarda en llegar */}
-            <strong>{summary.totalClasses || 0}</strong>
+          <div className="student-stats-grid">
+            <div>
+              <span>Total clases</span>
+              <strong>{summary.totalClasses || 0}</strong>
+            </div>
+            <div>
+              <span>Registradas</span>
+              <strong>{summary.attendedClasses || 0}</strong>
+            </div>
+            <div>
+              <span>Pendientes</span>
+              <strong>{summary.missedClasses || 0}</strong>
+            </div>
           </div>
-          <div>
-            <span>Registradas</span>
-            <strong>{summary.attendedClasses || 0}</strong>
+
+          <div className="student-percentage-row">
+            <PercentageBadge
+              label="% asistencia"
+              value={summary.attendancePercentage || 0}
+              tone="attendance"
+            />
+            <PercentageBadge
+              label="% inasistencia"
+              value={summary.absencePercentage || 0}
+              tone="absence"
+            />
           </div>
-          <div>
-            <span>Pendientes</span>
-            <strong>{summary.missedClasses || 0}</strong>
+        </div>
+
+        <div className="student-attendance-table-card">
+          <div className="student-attendance-table-header">
+            <span>Historial filtrado</span>
+            <strong>{attendanceRows.length} registros</strong>
+          </div>
+          <div className="student-attendance-table-wrap">
+            <table className="student-attendance-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attendanceRows.length > 0 ? (
+                  attendanceRows.map((attendance) => (
+                    <tr key={attendance.id}>
+                      <td>{attendance.fechaLabel}</td>
+                      <td>
+                        <span className="student-attendance-status">
+                          {attendance.estado}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={2}>Sin asistencias en este rango.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
