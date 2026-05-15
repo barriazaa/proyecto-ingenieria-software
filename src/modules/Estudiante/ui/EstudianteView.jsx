@@ -208,7 +208,9 @@ const EstudianteView = () => {
               {activeTab === "cursos" ? (
                 <CourseList courses={courses} onCourseSelect={handleCourseSelect} />
               ) : (
-                <QRScannerPanel />
+                <QRScannerPanel 
+                   onSuccessComplete={() => setActiveTab("cursos")} 
+                />
               )}
             </div>
 
