@@ -10,6 +10,10 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
   
   const [scanSuccess, setScanSuccess] = useState(false);
   
+  // --- NUEVOS ESTADOS: Control de múltiples cámaras ---
+  const [cameras, setCameras] = useState([]);
+  const [currentCamIndex, setCurrentCamIndex] = useState(-1);
+
   const [zoomSettings, setZoomSettings] = useState({ min: 1, max: 1, step: 0.1, current: 1 });
   const [hasZoom, setHasZoom] = useState(false);
   
@@ -83,7 +87,8 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
         isPausedRef.current = false;
         setStatus({ msg: "", type: "" }); 
         if (qrInstanceRef.current && !qrInstanceRef.current.isScanning && !scanSuccess) {
-           startCamera(); 
+           // Usamos la cámara actual seleccionada si hay error
+           startCamera(currentCamIndex >= 0 ? cameras[currentCamIndex].id : null); 
         } else if (qrInstanceRef.current) {
            qrInstanceRef.current.resume(); 
         }
@@ -105,7 +110,6 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
     }
   };
 
-  // --- LÓGICA DE INSISTENCIA PARA EL ZOOM ---
   const checkZoomCapabilities = (attempts = 0) => {
     if (!qrInstanceRef.current) return;
     try {
@@ -113,7 +117,6 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
       if (videoTrack) {
         const capabilities = videoTrack.getCapabilities();
         
-        // Si encontramos el zoom, dibujamos la barra y detenemos la búsqueda
         if (capabilities.zoom) {
           setHasZoom(true);
           setZoomSettings({
@@ -129,24 +132,31 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
       // Ignoramos el error silenciosamente
     }
 
-    // Si llegamos aquí, no encontró zoom. Volvemos a intentar hasta 5 veces.
     if (attempts < 5) {
-      setTimeout(() => checkZoomCapabilities(attempts + 1), 1000); // 1 segundo de pausa entre intentos
+      setTimeout(() => checkZoomCapabilities(attempts + 1), 1000); 
     }
   };
 
-  const startCamera = async () => {
+  // --- START CAMERA MODIFICADO PARA ACEPTAR ID ---
+  const startCamera = async (specificCameraId = null) => {
     if (qrInstanceRef.current && qrInstanceRef.current.isScanning) {
       await qrInstanceRef.current.stop();
     }
+
+    // Ocultamos el zoom al cambiar de lente, por si el nuevo no tiene
+    setHasZoom(false); 
 
     const html5QrCode = new Html5Qrcode("student-qr-reader");
     qrInstanceRef.current = html5QrCode;
     isPausedRef.current = false;
 
     try {
+      const cameraConfig = specificCameraId 
+        ? { deviceId: { exact: specificCameraId } } 
+        : { facingMode: "environment" };
+
       await html5QrCode.start(
-        { facingMode: "environment" }, 
+        cameraConfig, 
         { 
           fps: 10, 
           qrbox: (viewfinderWidth, viewfinderHeight) => {
@@ -163,7 +173,6 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
 
       setStatus({ msg: "", type: "" });
       
-      // Iniciamos el escaneo de capacidades con el intento número 0
       checkZoomCapabilities(0);
 
     } catch (error) {
@@ -172,8 +181,38 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
     }
   };
 
+  // --- FUNCIÓN DE SALTO DE CÁMARA ---
+  const handleSwitchCamera = () => {
+    if (cameras.length === 0) return;
+    
+    let nextIndex = currentCamIndex + 1;
+    if (nextIndex >= cameras.length) {
+      nextIndex = 0; 
+    }
+    
+    setCurrentCamIndex(nextIndex);
+    const nextCamId = cameras[nextIndex].id;
+    
+    setStatus({ msg: "Cambiando de lente...", type: "info" });
+    startCamera(nextCamId);
+  };
+
   useEffect(() => {
-    startCamera();
+    // Obtenemos las cámaras antes de iniciar
+    const initCamerasAndStart = async () => {
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 1) {
+          setCameras(devices);
+        }
+      } catch (err) {
+        console.warn("No se pudo obtener la lista de cámaras:", err);
+      }
+      startCamera();
+    };
+
+    initCamerasAndStart();
+
     return () => {
       if (qrInstanceRef.current?.isScanning) {
         qrInstanceRef.current.stop().catch(() => {});
@@ -235,6 +274,23 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
                 onPointerDown={(e) => e.stopPropagation()} 
                 style={{ width: "100%", cursor: "pointer", accentColor: "#2563eb" }}
               />
+            </div>
+          )}
+
+          {/* BOTÓN DE CAMBIO DE CÁMARA */}
+          {cameras.length > 1 && !loading && (
+            <div style={{ textAlign: "center", marginTop: "15px" }}>
+              <button 
+                onClick={handleSwitchCamera}
+                style={{
+                  background: "#eff6ff", color: "#2563eb", border: "2px solid #bfdbfe",
+                  padding: "10px 20px", borderRadius: "12px", fontWeight: "bold",
+                  cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "8px",
+                  boxShadow: "0 2px 5px rgba(0,0,0,0.05)"
+                }}
+              >
+                🔄 Cambiar lente ({currentCamIndex + 1 === 0 ? "Auto" : currentCamIndex + 1}/{cameras.length})
+              </button>
             </div>
           )}
         </>
