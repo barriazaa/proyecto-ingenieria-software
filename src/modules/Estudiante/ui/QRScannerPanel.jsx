@@ -105,12 +105,15 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
     }
   };
 
-  const checkZoomCapabilities = () => {
+  // --- LÓGICA DE INSISTENCIA PARA EL ZOOM ---
+  const checkZoomCapabilities = (attempts = 0) => {
     if (!qrInstanceRef.current) return;
     try {
       const videoTrack = qrInstanceRef.current.getRunningTrack();
       if (videoTrack) {
         const capabilities = videoTrack.getCapabilities();
+        
+        // Si encontramos el zoom, dibujamos la barra y detenemos la búsqueda
         if (capabilities.zoom) {
           setHasZoom(true);
           setZoomSettings({
@@ -119,10 +122,16 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
             step: capabilities.zoom.step || 0.1,
             current: capabilities.zoom.min
           });
+          return; 
         }
       }
     } catch (e) {
-      console.warn("La cámara actual no reporta soporte de zoom.");
+      // Ignoramos el error silenciosamente
+    }
+
+    // Si llegamos aquí, no encontró zoom. Volvemos a intentar hasta 5 veces.
+    if (attempts < 5) {
+      setTimeout(() => checkZoomCapabilities(attempts + 1), 1000); // 1 segundo de pausa entre intentos
     }
   };
 
@@ -149,14 +158,13 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
           }
         }, 
         onScanSuccess,
-        () => {} // Ignora errores de lectura basura para no trabar la cámara
+        () => {}
       );
 
-      // ¡AQUÍ BORRAMOS EL ERROR EN CUANTO LA CÁMARA ARRANCA CON ÉXITO!
       setStatus({ msg: "", type: "" });
-
-      // Esperamos medio segundo y luego preguntamos por el zoom
-      setTimeout(checkZoomCapabilities, 500);
+      
+      // Iniciamos el escaneo de capacidades con el intento número 0
+      checkZoomCapabilities(0);
 
     } catch (error) {
       console.error(error);
