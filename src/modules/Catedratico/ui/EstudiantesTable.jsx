@@ -1,8 +1,55 @@
 import { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import { getCourses } from "../../cursos/application/courseService";
+import { auth } from "../../../firebase/firebase";
+import { getUserFromDB } from "../../auth-registro/infrastructure/FirebaseAuthRepository";
 import CatedraticoService from "../application/CatedraticoService";
 
+const STUDENTS_PER_PAGE = 10;
+
 const getStudentFullName = (student) => student?.nombre || "Sin nombre";
+
+const normalizeSearchText = (value = "") =>
+  String(value)
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const getStudentUniqueId = (student) =>
+  student?.estudianteUid || student?.uid || student?.id || student?.carnet || "";
+
+const getCourseId = (course) =>
+  typeof course === "string" ? course : course?.id || course?.courseId || course?.cursoId;
+
+const buildTeacherName = (registeredUser, firebaseUser) => {
+  const fullName = `${registeredUser?.nombres || ""} ${registeredUser?.apellidos || ""}`.trim();
+  if (fullName) return fullName;
+  if (firebaseUser?.displayName?.trim()) return firebaseUser.displayName.trim();
+  return firebaseUser?.email || "";
+};
+
+const courseBelongsToTeacher = (course, teacher) => {
+  if (!teacher?.uid) return false;
+  const courseOwnerUid =
+    course.teacherUid ||
+    course.docenteUid ||
+    course.docenteId ||
+    course.ownerUid ||
+    course.ownerId ||
+    course.catedraticoUid ||
+    course.catedraticoId ||
+    course.createdBy ||
+    course.uid;
+
+  if (courseOwnerUid) {
+    return courseOwnerUid === teacher.uid;
+  }
+
+  const teacherName = normalizeSearchText(teacher.nombre);
+  const courseTeacherName = normalizeSearchText(course.docente);
+  return teacherName && courseTeacherName ? teacherName === courseTeacherName : false;
+};
 
 const normalizeCourseAssignments = (student) => {
   const candidateAssignments =
@@ -17,15 +64,15 @@ const normalizeCourseAssignments = (student) => {
   }
 
   return candidateAssignments
-    .map((course) =>
-      typeof course === "string" ? course : course?.id || course?.courseId
-    )
+    .map(getCourseId)
     .filter(Boolean);
 };
 
-const resolveAssignedCourses = (student, allCourses, assignedCourseIds) => {
-  const explicitAssignments = allCourses.filter((course) =>
-    assignedCourseIds.includes(course.id)
+const resolveAssignedCourses = (student, teacherCourses, assignedCourseIds, teacher) => {
+  const teacherCourseIds = new Set(teacherCourses.map((course) => String(course.id)));
+  const assignedCourseIdSet = new Set(assignedCourseIds.map((courseId) => String(courseId)));
+  const explicitAssignments = teacherCourses.filter((course) =>
+    assignedCourseIdSet.has(String(course.id))
   );
 
   if (explicitAssignments.length > 0) {
@@ -38,7 +85,13 @@ const resolveAssignedCourses = (student, allCourses, assignedCourseIds) => {
     [];
 
   if (embeddedAssignments.length > 0) {
-    return embeddedAssignments;
+    return embeddedAssignments.filter((course) => {
+      const courseId = getCourseId(course);
+      return (
+        (courseId && teacherCourseIds.has(String(courseId))) ||
+        courseBelongsToTeacher(course, teacher)
+      );
+    });
   }
 
   return [];
@@ -119,6 +172,49 @@ const buildAssignmentsMap = (students) =>
     return accumulator;
   }, {});
 
+const getStudentsForTeacherCourses = (students, teacherCourses) => {
+  const teacherCourseIds = new Set(teacherCourses.map((course) => String(course.id)));
+  const studentsByUid = new Map();
+
+  students.forEach((student) => {
+    const assignedCourseIds = normalizeCourseAssignments(student).map((courseId) =>
+      String(courseId)
+    );
+    const belongsToTeacherCourse = assignedCourseIds.some((courseId) =>
+      teacherCourseIds.has(courseId)
+    );
+
+    if (!belongsToTeacherCourse) {
+      return;
+    }
+
+    const studentUid = String(getStudentUniqueId(student));
+    if (studentUid && !studentsByUid.has(studentUid)) {
+      studentsByUid.set(studentUid, student);
+    }
+  });
+
+  return Array.from(studentsByUid.values());
+};
+
+const matchesStudentSearch = (student, searchTerm) => {
+  const normalizedSearch = normalizeSearchText(searchTerm);
+  if (!normalizedSearch) {
+    return true;
+  }
+
+  const searchableText = normalizeSearchText(
+    [
+      student.nombre,
+      student.nombres,
+      student.apellidos,
+      student.carnet,
+    ].join(" ")
+  );
+
+  return searchableText.includes(normalizedSearch);
+};
+
 const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
   const [studentsState, setStudentsState] = useState(estudiantes);
   const [selectedStudentId, setSelectedStudentId] = useState(estudiantes[0]?.id || "");
@@ -129,71 +225,140 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
     buildAssignmentsMap(estudiantes)
   );
   const [selectedCourseToAssign, setSelectedCourseToAssign] = useState("");
+  const [currentTeacher, setCurrentTeacher] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [editingField, setEditingField] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     setStudentsState(estudiantes);
-    setSelectedStudentId((currentId) => {
-      if (currentId && estudiantes.some((student) => student.id === currentId)) {
-        return currentId;
-      }
-      return estudiantes[0]?.id || "";
-    });
     setCourseAssignments(buildAssignmentsMap(estudiantes));
   }, [estudiantes]);
 
   useEffect(() => {
     let isMounted = true;
 
-    const loadCourses = async () => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!isMounted) {
+        return;
+      }
+
+      if (!firebaseUser) {
+        setCurrentTeacher(null);
+        setAllCourses([]);
+        setCoursesError("Debes iniciar sesion para ver estudiantes.");
+        setCoursesLoading(false);
+        return;
+      }
+
       try {
         setCoursesLoading(true);
         setCoursesError("");
+        const registeredUser = await getUserFromDB(firebaseUser.uid);
+        const teacher = {
+          uid: firebaseUser.uid,
+          email: registeredUser?.email || firebaseUser.email || "",
+          nombre: buildTeacherName(registeredUser, firebaseUser),
+          rol: registeredUser?.rol || "",
+        };
         const data = await getCourses();
         if (isMounted) {
+          setCurrentTeacher(teacher);
           setAllCourses(data);
         }
       } catch (error) {
         console.error(error);
         if (isMounted) {
-          setCoursesError("No se pudieron cargar los cursos.");
+          setCoursesError("No se pudieron cargar los cursos del catedratico.");
         }
       } finally {
         if (isMounted) {
           setCoursesLoading(false);
         }
       }
-    };
-
-    loadCourses();
+    });
 
     return () => {
       isMounted = false;
+      unsubscribe();
     };
   }, []);
 
+  const teacherCourses = useMemo(
+    () => allCourses.filter((course) => courseBelongsToTeacher(course, currentTeacher)),
+    [allCourses, currentTeacher]
+  );
+
+  const teacherStudents = useMemo(
+    () => getStudentsForTeacherCourses(studentsState, teacherCourses),
+    [studentsState, teacherCourses]
+  );
+
+  const searchedStudents = useMemo(
+    () => teacherStudents.filter((student) => matchesStudentSearch(student, searchTerm)),
+    [searchTerm, teacherStudents]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(searchedStudents.length / STUDENTS_PER_PAGE));
+
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * STUDENTS_PER_PAGE;
+    return searchedStudents.slice(start, start + STUDENTS_PER_PAGE);
+  }, [currentPage, searchedStudents]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
+  useEffect(() => {
+    setSelectedStudentId((currentId) => {
+      if (currentId && searchedStudents.some((student) => student.id === currentId)) {
+        return currentId;
+      }
+
+      return searchedStudents[0]?.id || "";
+    });
+  }, [searchedStudents]);
+
   const selectedStudent =
-    studentsState.find((student) => student.id === selectedStudentId) ||
-    studentsState[0] ||
+    searchedStudents.find((student) => student.id === selectedStudentId) ||
+    searchedStudents[0] ||
     null;
 
-  const assignedCourseIds = selectedStudent
-    ? courseAssignments[selectedStudent.id] || []
-    : [];
+  const selectedStudentCourseKey = selectedStudent?.id || "";
+  const assignedCourseIds = useMemo(
+    () =>
+      selectedStudentCourseKey
+        ? courseAssignments[selectedStudentCourseKey] || []
+        : [],
+    [courseAssignments, selectedStudentCourseKey]
+  );
 
   const assignedCourses = useMemo(() => {
     if (!selectedStudent) {
       return [];
     }
 
-    return resolveAssignedCourses(selectedStudent, allCourses, assignedCourseIds);
-  }, [allCourses, assignedCourseIds, selectedStudent]);
+    return resolveAssignedCourses(
+      selectedStudent,
+      teacherCourses,
+      assignedCourseIds,
+      currentTeacher
+    );
+  }, [assignedCourseIds, currentTeacher, selectedStudent, teacherCourses]);
 
   const availableCourses = useMemo(
-    () => allCourses.filter((course) => !assignedCourseIds.includes(course.id)),
-    [allCourses, assignedCourseIds]
+    () => {
+      const assignedCourseIdSet = new Set(assignedCourseIds.map((courseId) => String(courseId)));
+      return teacherCourses.filter((course) => !assignedCourseIdSet.has(String(course.id)));
+    },
+    [teacherCourses, assignedCourseIds]
   );
 
   const persistStudent = async (studentId, overrides = {}) => {
@@ -315,6 +480,8 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
   }
 
   const totalAssignedCourses = assignedCourses.length;
+  const pageStart = searchedStudents.length === 0 ? 0 : (currentPage - 1) * STUDENTS_PER_PAGE + 1;
+  const pageEnd = Math.min(currentPage * STUDENTS_PER_PAGE, searchedStudents.length);
 
   return (
     <div style={styles.layout} className="students-layout">
@@ -322,20 +489,69 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
         <div style={styles.sidebarHeader}>
           <span style={styles.sectionBadge}>Estudiantes</span>
           <h3 style={styles.sidebarTitle}>Listado activo</h3>
+          <input
+            type="search"
+            placeholder="Buscar por nombre, apellido o carnet..."
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            style={styles.searchInput}
+            className="responsive-input"
+          />
           <p style={styles.sidebarText}>
             Selecciona un estudiante para revisar su ficha y sus cursos.
           </p>
+          {coursesError ? <div style={styles.warningBox}>{coursesError}</div> : null}
         </div>
-        <div style={styles.studentList}>
-          {studentsState.map((student) => (
-            <StudentRow
-              key={student.id}
-              student={student}
-              selected={student.id === selectedStudent?.id}
-              onSelect={setSelectedStudentId}
-            />
-          ))}
-        </div>
+        {coursesLoading ? (
+          <div style={styles.loadingBox}>Cargando estudiantes...</div>
+        ) : searchedStudents.length > 0 ? (
+          <>
+            <div style={styles.studentList}>
+              {paginatedStudents.map((student) => (
+                <StudentRow
+                  key={student.id}
+                  student={student}
+                  selected={student.id === selectedStudent?.id}
+                  onSelect={setSelectedStudentId}
+                />
+              ))}
+            </div>
+            <div style={styles.pagination}>
+              <span style={styles.paginationSummary}>
+                Mostrando {pageStart} a {pageEnd} de {searchedStudents.length}
+              </span>
+              <div style={styles.paginationActions}>
+                <button
+                  type="button"
+                  style={{
+                    ...styles.paginationButton,
+                    ...(currentPage === 1 ? styles.paginationButtonDisabled : {}),
+                  }}
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                >
+                  Anterior
+                </button>
+                <span style={styles.pageIndicator}>{currentPage}</span>
+                <button
+                  type="button"
+                  style={{
+                    ...styles.paginationButton,
+                    ...(currentPage === totalPages ? styles.paginationButtonDisabled : {}),
+                  }}
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div style={styles.emptyCourses}>
+            No hay estudiantes relacionados con los cursos del catedratico.
+          </div>
+        )}
       </aside>
 
       <section style={styles.content}>
@@ -614,6 +830,17 @@ const styles = {
     color: "#0f172a",
     fontSize: "24px",
   },
+  searchInput: {
+    width: "100%",
+    border: "1px solid #cbd5e1",
+    borderRadius: "14px",
+    padding: "12px 14px",
+    marginTop: "14px",
+    background: "#ffffff",
+    color: "#0f172a",
+    fontSize: "14px",
+    boxShadow: "0 8px 18px rgba(148, 163, 184, 0.08)",
+  },
   sidebarText: {
     marginTop: "8px",
     marginBottom: 0,
@@ -624,6 +851,41 @@ const styles = {
   studentList: {
     display: "grid",
     gap: "12px",
+  },
+  pagination: {
+    display: "grid",
+    gap: "12px",
+    marginTop: "16px",
+  },
+  paginationSummary: {
+    color: "#64748b",
+    fontSize: "13px",
+    fontWeight: "600",
+  },
+  paginationActions: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+  },
+  paginationButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#0f172a",
+    padding: "9px 12px",
+    borderRadius: "12px",
+    cursor: "pointer",
+    fontWeight: "700",
+  },
+  paginationButtonDisabled: {
+    opacity: 0.55,
+    cursor: "not-allowed",
+  },
+  pageIndicator: {
+    minWidth: "34px",
+    textAlign: "center",
+    color: "#0f172a",
+    fontWeight: "800",
   },
   studentRow: {
     border: "1px solid #e2e8f0",

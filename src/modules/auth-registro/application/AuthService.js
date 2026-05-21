@@ -54,11 +54,16 @@ export const registerCompleteUser = async (firebaseUser, rol, form) => {
       form.password
     );
   } catch (error) {
-    if (error.code === "auth/credential-already-in-use") {
+    if (error.code === "auth/provider-already-linked") {
+      // The authenticated Google user already has password access; continue with the existing save flow.
+    } else if (
+      error.code === "auth/credential-already-in-use" ||
+      error.code === "auth/email-already-in-use"
+    ) {
       throw new Error("Este correo ya tiene contrasena registrada");
+    } else {
+      throw error;
     }
-
-    throw error;
   }
 
   const newUser = createRegisteredUser({ firebaseUser, rol, form });

@@ -114,6 +114,57 @@ export const getCourseClassDatesInRange = (diasCurso, fechaInicio, fechaFin) => 
 const getStudentKey = (detail) =>
   detail.estudianteUid || detail.estudianteCarnet || detail.estudianteNombre || detail.id;
 
+const buildStudentKeys = (student) => {
+  const keys = [
+    student?.estudianteUid && `uid:${student.estudianteUid}`,
+    student?.uid && `uid:${student.uid}`,
+    student?.id && `uid:${student.id}`,
+    student?.estudianteCarnet && `carnet:${student.estudianteCarnet}`,
+    student?.carnet && `carnet:${student.carnet}`,
+  ];
+
+  return keys.filter(Boolean).map((key) => String(key).trim().toLowerCase());
+};
+
+const findExistingStudentKey = (studentsById, student) => {
+  const studentKeys = buildStudentKeys(student);
+  return studentKeys.find((key) => studentsById.has(key)) || "";
+};
+
+const setStudentByAllKeys = (studentsById, student) => {
+  const studentKeys = buildStudentKeys(student);
+  const fallbackKey = getStudentKey(student);
+  const canonicalKey = studentKeys[0] || (fallbackKey ? `fallback:${fallbackKey}` : "");
+
+  if (!canonicalKey) {
+    return;
+  }
+
+  const nextStudent = {
+    ...student,
+    _studentReportKey: canonicalKey,
+  };
+
+  if (studentKeys.length === 0) {
+    studentsById.set(canonicalKey, nextStudent);
+    return;
+  }
+
+  studentKeys.forEach((studentKey) => {
+    studentsById.set(studentKey, nextStudent);
+  });
+};
+
+const getUniqueStudents = (studentsById) => {
+  const uniqueStudents = new Map();
+
+  studentsById.forEach((student) => {
+    uniqueStudents.set(student._studentReportKey || getStudentKey(student), student);
+  });
+
+  return Array.from(uniqueStudents.values());
+};
+
 const getAttendanceDates = (detail) =>
   Array.isArray(detail.fechasAsistencia) ? detail.fechasAsistencia : [];
 
@@ -133,7 +184,8 @@ const normalizeAssignedStudent = (student, course = {}) => ({
   estudianteCarnet: student?.estudianteCarnet || student?.carnet || "Sin carnet",
   seccion: course?.seccion || student?.seccion || "",
   fechasAsistencia: [],
-  estado: "Inactivo",
+  estado: "Activo",
+  isCurrentlyAssigned: true,
   totalAsistencias: 0,
 });
 
@@ -147,6 +199,7 @@ export const normalizeAttendanceDetail = (detail) => ({
   seccion: detail.seccion || "",
   fechasAsistencia: getAttendanceDates(detail),
   estado: detail.estado || detail.estudianteEstado || detail.estadoEstudiante || "Activo",
+  isCurrentlyAssigned: false,
 });
 
 const mergeStudentAttendance = (details, range, assignedStudents = [], course = {}) => {
@@ -154,40 +207,46 @@ const mergeStudentAttendance = (details, range, assignedStudents = [], course = 
 
   assignedStudents.forEach((student) => {
     const normalizedStudent = normalizeAssignedStudent(student, course);
-    const studentKey = getStudentKey(normalizedStudent);
 
-    if (studentKey && !studentsById.has(studentKey)) {
-      studentsById.set(studentKey, normalizedStudent);
-    }
+    setStudentByAllKeys(studentsById, normalizedStudent);
   });
 
   details.forEach((detail) => {
     const normalizedDetail = normalizeAttendanceDetail(detail);
-    const studentKey = getStudentKey(normalizedDetail);
-    const previousRecord = studentsById.get(studentKey);
+    const existingStudentKey = findExistingStudentKey(studentsById, normalizedDetail);
+    const previousRecord = existingStudentKey ? studentsById.get(existingStudentKey) : null;
     const fechasAsistencia = range
       ? filterAttendanceDatesByRange(normalizedDetail.fechasAsistencia, range)
       : normalizedDetail.fechasAsistencia;
     const asistenciaCount = fechasAsistencia.length;
 
     if (!previousRecord) {
-      studentsById.set(studentKey, {
+      setStudentByAllKeys(studentsById, {
         ...normalizedDetail,
         fechasAsistencia,
         totalAsistencias: asistenciaCount,
+        estado: "Inactivo",
+        isCurrentlyAssigned: false,
       });
       return;
     }
 
-    studentsById.set(studentKey, {
+    setStudentByAllKeys(studentsById, {
       ...previousRecord,
-      ...normalizedDetail,
+      cursoId: previousRecord.cursoId || normalizedDetail.cursoId,
+      cursoNombre: previousRecord.cursoNombre || normalizedDetail.cursoNombre,
+      seccion: previousRecord.seccion || normalizedDetail.seccion,
+      estudianteUid: previousRecord.estudianteUid || normalizedDetail.estudianteUid,
+      estudianteNombre: previousRecord.estudianteNombre || normalizedDetail.estudianteNombre,
+      estudianteCarnet: previousRecord.estudianteCarnet || normalizedDetail.estudianteCarnet,
       fechasAsistencia: [...previousRecord.fechasAsistencia, ...fechasAsistencia],
       totalAsistencias: previousRecord.totalAsistencias + asistenciaCount,
+      estado: previousRecord.isCurrentlyAssigned ? "Activo" : "Inactivo",
+      isCurrentlyAssigned: Boolean(previousRecord.isCurrentlyAssigned),
     });
   });
 
-  return Array.from(studentsById.values());
+  return getUniqueStudents(studentsById);
 };
 
 const addStudentAttendanceCalculations = (students, clasesEsperadas) =>
@@ -208,7 +267,7 @@ const addStudentAttendanceCalculations = (students, clasesEsperadas) =>
       porcentaje: porcentajeAsistencia,
       porcentajeAsistencia,
       porcentajeInasistencia,
-      estado: totalAsistencias > 0 ? "Activo" : "Inactivo",
+      estado: student.isCurrentlyAssigned ? "Activo" : "Inactivo",
     };
   });
 

@@ -64,7 +64,7 @@ const ReporteriaSection = ({ reporteria }) => {
 
       <div style={styles.liveHeader}>
         <div>
-          <span style={styles.liveBadge}>Tiempo real</span>
+          <span style={styles.liveBadge}>ASISTENCIA</span>
           <h3 style={styles.sectionTitle}>Asistencias registradas</h3>
         </div>
         {attendanceError ? <span style={styles.errorText}>{attendanceError}</span> : null}

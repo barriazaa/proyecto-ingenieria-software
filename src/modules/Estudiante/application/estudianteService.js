@@ -7,6 +7,21 @@ import FirebaseEstudianteRepository from "../infrastructure/FirebaseEstudianteRe
 import AttendanceReportService from "../reportes/application/attendanceReportService";
 import { calcularDistanciaMetros } from "../utils/geoUtils";
 
+const normalizeStatus = (value = "Activo") =>
+  String(value)
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const assertStudentCanRegisterAttendance = (studentProfile) => {
+  const estado = normalizeStatus(studentProfile?.estado || "Activo");
+
+  if (estado !== "activo") {
+    throw new Error("Tu cuenta está inactiva. No puedes registrar asistencia.");
+  }
+};
+
 class EstudianteService {
   async getStudentDashboard(uid) {
     const studentProfile = await FirebaseEstudianteRepository.getStudentProfile(uid);
@@ -85,6 +100,9 @@ class EstudianteService {
         }
       }
 
+      const studentProfile = await FirebaseEstudianteRepository.getStudentProfile(currentUser.uid);
+      assertStudentCanRegisterAttendance(studentProfile);
+
       // 3. Validar si ya marcó asistencia hoy
       const yaRegistroHoy = await FirebaseEstudianteRepository.checkDuplicateAttendance(
         currentUser.uid,
@@ -97,10 +115,7 @@ class EstudianteService {
       }
 
       // 4. Obtener datos para el marcaje final
-      const [courseData, studentProfile] = await Promise.all([
-        FirebaseEstudianteRepository.getCourseById(courseId),
-        FirebaseEstudianteRepository.getStudentProfile(currentUser.uid)
-      ]);
+      const courseData = await FirebaseEstudianteRepository.getCourseById(courseId);
 
       if (!courseData) throw new Error("Curso no encontrado.");
 

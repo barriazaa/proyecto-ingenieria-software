@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import { AUTH_ROLE_OPTIONS } from "../domain/authRules";
 import { registerCompleteUser,
          startGoogleRegistration,
@@ -115,6 +115,10 @@ setError("");
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (loading) {
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
@@ -122,10 +126,11 @@ setError("");
       await registerCompleteUser(user, rol, form);
       navigate(ROUTES.login);
     } catch (err) {
+      console.error(err);
       setError(err.message || "Error al completar el registro");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -133,7 +138,7 @@ setError("");
       <div style={styles.backgroundGlowTop} />
       <div style={styles.backgroundGlowBottom} />
 
-      <motion.div
+      <Motion.div
         style={styles.card}
         className="auth-card register-card"
         initial={{ opacity: 0, scale: 0.96, y: 20 }}
@@ -291,6 +296,12 @@ setError("");
               />
             </div>
 
+            {error ? (
+              <div style={styles.error} role="alert" aria-live="polite">
+                {error}
+              </div>
+            ) : null}
+
             <button
               type="submit"
               style={styles.primaryButton}
@@ -309,7 +320,7 @@ setError("");
             </button>
           </form>
         )}
-      </motion.div>
+      </Motion.div>
     </div>
   );
 };
