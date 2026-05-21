@@ -34,4 +34,4 @@ class AttendanceReportService {
   }
 }
 
-export default new AttendanceReportService();
+export default new AttendanceReportService(); 

@@ -163,4 +163,4 @@ class FirebaseEstudianteRepository {
   }
 }
 
-export default new FirebaseEstudianteRepository();
+export default new FirebaseEstudianteRepository(); 

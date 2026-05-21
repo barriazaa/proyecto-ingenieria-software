@@ -16,4 +16,4 @@ export const createRegisteredUser = ({ firebaseUser, rol, form }) => ({
   apellidos: form.apellidos.trim(),
   rol,
   creadoEn: new Date(),
-});
+}); 

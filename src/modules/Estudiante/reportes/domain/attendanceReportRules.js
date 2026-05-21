@@ -220,4 +220,4 @@ export const calculateAttendanceSummary = (course, attendances, range) => {
     // Inyectamos el nombre que usaremos en el H2 del detalle
     courseDisplayName: getCourseDisplayName(course) 
   };
-};
+}; 

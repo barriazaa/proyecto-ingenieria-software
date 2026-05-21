@@ -58,4 +58,4 @@ export const toggleGpsRequirement = async (course) => {
     course._collection, 
     nuevoEstadoGps
   );
-};
+}; 

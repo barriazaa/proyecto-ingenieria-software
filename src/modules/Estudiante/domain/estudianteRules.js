@@ -58,4 +58,4 @@ export const mapAssignedCourses = (courses, assignedCourseIds, student) => {
   }, new Map());
 
   return Array.from(courseMap.values());
-};
+}; 

@@ -135,4 +135,4 @@ const CourseDetail = ({ course, range, summary, onRangeChange, onBack }) => {
   );
 };
 
-export default CourseDetail;
+export default CourseDetail; 

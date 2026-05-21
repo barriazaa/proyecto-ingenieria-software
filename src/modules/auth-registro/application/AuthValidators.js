@@ -43,5 +43,5 @@ export const ensureUserIsNotRegistered = (user) => {
 export const ensureUserExists = (user) => {
   if (!user) {
     throw new Error("Usuario no registrado");
-  }
+  } 
 };

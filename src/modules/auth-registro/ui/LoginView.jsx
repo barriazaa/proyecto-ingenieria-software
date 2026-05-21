@@ -79,7 +79,7 @@ const LoginView = () => {
     }
 
     setLoading(false);
-  };
+  }; 
 
   return (
     <motion.div style={styles.container} className="auth-page auth-page-login">

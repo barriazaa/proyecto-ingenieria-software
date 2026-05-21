@@ -19,7 +19,7 @@ export const loginWithEmail = async (email, password) => {
   ensureUserExists(user);
 
   return user;
-};
+}; 
 
 export const loginWithGoogle = async () => {
   const firebaseUser = await authRepository.loginWithGoogle();

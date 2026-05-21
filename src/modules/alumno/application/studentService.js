@@ -5,4 +5,4 @@ export const loadStudentModuleSummary = () => ({
   description:
     "Este espacio concentra las vistas y reglas relacionadas con estudiantes dentro de una estructura hexagonal.",
   highlights: getStudentHighlights(),
-});
+}); 

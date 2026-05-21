@@ -55,4 +55,4 @@ class CatedraticoService {
   }
 }
 
-export default new CatedraticoService();
+export default new CatedraticoService(); 

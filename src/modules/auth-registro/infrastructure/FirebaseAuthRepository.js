@@ -53,4 +53,4 @@ export const createFirebaseAuthRepository = () => ({
   linkPasswordToGoogleUser,
   getUserById: getUserFromDB,
   saveUser: saveUserToDB,
-});
+}); 

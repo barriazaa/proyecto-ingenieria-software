@@ -290,10 +290,10 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
         current: zoomCapability.min
       })
     };
-  };
+  }; 
 
   const getZoomSettingsFromScanner = () => {
-    try {
+    try { 
       const scanner = qrInstanceRef.current;
       if (!scanner?.isScanning) return null;
 

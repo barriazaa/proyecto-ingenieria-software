@@ -597,4 +597,4 @@ const styles = {
   },
 };
 
-export default RegisterView;
+export default RegisterView; 

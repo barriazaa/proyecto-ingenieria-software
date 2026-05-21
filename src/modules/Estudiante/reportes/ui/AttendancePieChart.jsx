@@ -15,9 +15,6 @@ const AttendancePieChart = ({ summary }) => {
   const missed = summary.missedClasses ?? 0;
   const absencePercentage = summary.absencePercentage ?? 0;
 
-  // 3. LÓGICA VISUAL:
-  // Si hay clases programadas, mostramos verde/rojo. 
-  // Si no hay clases aún (total 0), mostramos un gris neutral.
   const chartStyle = {
     background: total > 0 ? buildPieSegment(percentage) : "#e2e8f0"
   };
@@ -46,4 +43,4 @@ const AttendancePieChart = ({ summary }) => {
   );
 };
 
-export default AttendancePieChart;
+export default AttendancePieChart; 

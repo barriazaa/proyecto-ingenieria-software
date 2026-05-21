@@ -40,4 +40,4 @@ const CourseList = ({ courses, onCourseSelect }) => {
   );
 };
 
-export default CourseList;
+export default CourseList; 

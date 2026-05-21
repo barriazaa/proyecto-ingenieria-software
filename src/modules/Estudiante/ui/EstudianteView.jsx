@@ -219,6 +219,6 @@ const EstudianteView = () => {
       </Motion.div>
     </main>
   );
-};
+}; 
 
 export default EstudianteView;

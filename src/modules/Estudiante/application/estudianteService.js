@@ -154,4 +154,4 @@ class EstudianteService {
   }
 }
 
-export default new EstudianteService(); 
+export default new EstudianteService();  

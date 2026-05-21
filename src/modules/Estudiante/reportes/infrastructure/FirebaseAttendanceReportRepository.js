@@ -105,4 +105,4 @@ class FirebaseAttendanceReportRepository {
   }
 }
 
-export default new FirebaseAttendanceReportRepository();
+export default new FirebaseAttendanceReportRepository(); 

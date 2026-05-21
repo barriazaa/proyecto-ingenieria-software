@@ -61,4 +61,4 @@ export const filterStudentsByCourse = (students, courseId) =>
     getStudentCourseAssignments(student).some(
       (assignedCourseId) => String(assignedCourseId) === String(courseId)
     )
-  );
+  ); 

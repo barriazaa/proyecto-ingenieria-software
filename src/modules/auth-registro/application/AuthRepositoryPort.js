@@ -4,4 +4,4 @@ export const createAuthRepositoryPort = (repository) => ({
   linkPasswordToGoogleUser: repository.linkPasswordToGoogleUser,
   getUserById: repository.getUserById,
   saveUser: repository.saveUser,
-});
+}); 
