@@ -85,6 +85,28 @@ const filterAttendanceDatesByRange = (dates, range) =>
     return dateKey && isDateKeyInRange(dateKey, range);
   });
 
+const formatDateLabel = (dateKey) => {
+  const [year, month, day] = String(dateKey || "").split("-");
+
+  if (!year || !month || !day) {
+    return "Sin fecha";
+  }
+
+  return `${day}/${month}/${year}`;
+};
+
+const getUniqueSortedDateKeys = (dates) =>
+  Array.from(
+    new Set(
+      dates
+        .map((date) => normalizeDateKey(date))
+        .filter(Boolean)
+    )
+  ).sort();
+
+const calculatePercentage = (value, total) =>
+  total === 0 ? 0 : Math.round((value / total) * 100);
+
 export const getCourseClassDatesInRange = (diasCurso, fechaInicio, fechaFin) => {
   const range = normalizeDateRange({ fechaInicio, fechaFin });
   const courseDays = new Set((diasCurso || []).map((day) => normalizeText(day)));
@@ -281,11 +303,18 @@ const calculateSummaryTotals = (students) => {
     (total, student) => total + student.totalInasistencias,
     0
   );
-  const porcentaje =
+  const porcentajeAsistencia =
     totalEstudiantes === 0
       ? 0
       : Math.round(
           students.reduce((total, student) => total + student.porcentajeAsistencia, 0) /
+            totalEstudiantes
+        );
+  const porcentajeInasistencia =
+    totalEstudiantes === 0
+      ? 0
+      : Math.round(
+          students.reduce((total, student) => total + student.porcentajeInasistencia, 0) /
             totalEstudiantes
         );
 
@@ -293,7 +322,9 @@ const calculateSummaryTotals = (students) => {
     totalEstudiantes,
     totalAsistencias,
     totalInasistencias,
-    porcentaje,
+    porcentaje: porcentajeAsistencia,
+    porcentajeAsistencia,
+    porcentajeInasistencia,
   };
 };
 
@@ -334,6 +365,7 @@ export const summarizeCourseAttendance = (
       seccion: course?.seccion || courseDetails[0]?.seccion || "",
       ...summaryTotals,
       clasesEsperadas,
+      fechasClase: classDates,
       rangoAplicado: normalizedRange,
       students: studentsWithCalculations,
     };
@@ -354,6 +386,7 @@ export const summarizeCourseAttendance = (
     });
   });
 
+  const classDates = Array.from(attendanceDates).sort();
   const clasesEsperadas = Math.max(attendanceDates.size, maxAttendancesByStudent);
   const studentsWithCalculations = addStudentAttendanceCalculations(
     students,
@@ -367,19 +400,117 @@ export const summarizeCourseAttendance = (
     seccion: course?.seccion || courseDetails[0]?.seccion || "",
     ...summaryTotals,
     clasesEsperadas,
+    fechasClase: classDates,
     students: studentsWithCalculations,
   };
 };
 
-export const summarizeTeacherAttendanceDashboard = (details) => {
+export const buildStudentAttendanceReport = (
+  courseReport = {},
+  student = {},
+  course = {},
+  dateRange
+) => {
+  const normalizedRange = normalizeDateRange(dateRange);
+  const availableClassDates =
+    Array.isArray(courseReport?.fechasClase) && courseReport.fechasClase.length > 0
+      ? courseReport.fechasClase
+      : student?.fechasAsistencia || [];
+  const classDates = normalizedRange
+    ? getCourseClassDatesInRange(
+        course?.dias || [],
+        normalizedRange.fechaInicio,
+        normalizedRange.fechaFin
+      )
+    : getUniqueSortedDateKeys(availableClassDates);
+  const attendanceDates = new Set(
+    getUniqueSortedDateKeys(
+      normalizedRange
+        ? filterAttendanceDatesByRange(student?.fechasAsistencia || [], normalizedRange)
+        : student?.fechasAsistencia || []
+    )
+  );
+  const todayKey = toDateKey(new Date());
+  const historial = classDates.map((dateKey) => {
+    const asistio = attendanceDates.has(dateKey);
+    const pendiente = !asistio && dateKey > todayKey;
+
+    return {
+      id: dateKey,
+      fecha: dateKey,
+      fechaLabel: formatDateLabel(dateKey),
+      estado: asistio ? "Asistencia" : pendiente ? "Pendiente por marcaje" : "Inasistencia",
+      asistio,
+      pendiente,
+    };
+  });
+  const totalAsistencias = historial.filter((item) => item.asistio).length;
+  const totalPendientes = historial.filter((item) => item.pendiente).length;
+  const totalInasistencias = historial.filter(
+    (item) => !item.asistio && !item.pendiente
+  ).length;
+  const clasesEvaluadas = totalAsistencias + totalInasistencias;
+  const porcentajeAsistencia = calculatePercentage(totalAsistencias, clasesEvaluadas);
+  const porcentajeInasistencia = calculatePercentage(totalInasistencias, clasesEvaluadas);
+
+  return {
+    estudianteUid: student?.estudianteUid || student?.uid || student?.id || "",
+    estudianteNombre: student?.estudianteNombre || student?.nombre || "Estudiante sin nombre",
+    estudianteCarnet: student?.estudianteCarnet || student?.carnet || "Sin carnet",
+    cursoId: courseReport?.cursoId || course?.id || student?.cursoId || "",
+    cursoNombre:
+      courseReport?.cursoNombre || course?.nombre || student?.cursoNombre || "Curso sin nombre",
+    seccion: courseReport?.seccion || course?.seccion || student?.seccion || "",
+    totalAsistencias,
+    totalInasistencias,
+    totalPendientes,
+    porcentaje: porcentajeAsistencia,
+    porcentajeAsistencia,
+    porcentajeInasistencia,
+    clasesEsperadas: classDates.length,
+    clasesEvaluadas,
+    rangoAplicado: normalizedRange,
+    fechasClase: classDates,
+    historial,
+  };
+};
+
+const getCourseId = (course) => String(course?.id || course?.cursoId || "");
+
+const normalizeAssignedStudentsByCourse = (assignedStudentsByCourse = {}) => {
+  if (assignedStudentsByCourse instanceof Map) {
+    return assignedStudentsByCourse;
+  }
+
+  return new Map(
+    Object.entries(assignedStudentsByCourse).map(([courseId, students]) => [
+      String(courseId),
+      Array.isArray(students) ? students : [],
+    ])
+  );
+};
+
+export const summarizeTeacherAttendanceDashboard = (details, options = {}) => {
+  const {
+    dateRange,
+    courses: courseMetadata = [],
+    assignedStudentsByCourse = {},
+  } = options;
   const normalizedDetails = details.map(normalizeAttendanceDetail);
   const coursesById = new Map();
   const studentIds = new Set();
+  const metadataByCourseId = new Map(
+    courseMetadata
+      .map((course) => [getCourseId(course), course])
+      .filter(([courseId]) => Boolean(courseId))
+  );
+  const assignedByCourseId = normalizeAssignedStudentsByCourse(assignedStudentsByCourse);
 
   normalizedDetails.forEach((detail) => {
     if (detail.cursoId) {
-      const currentCourseDetails = coursesById.get(detail.cursoId) || [];
-      coursesById.set(detail.cursoId, [...currentCourseDetails, detail]);
+      const courseKey = String(detail.cursoId);
+      const currentCourseDetails = coursesById.get(courseKey) || [];
+      coursesById.set(courseKey, [...currentCourseDetails, detail]);
     }
 
     const studentKey = getStudentKey(detail);
@@ -390,23 +521,58 @@ export const summarizeTeacherAttendanceDashboard = (details) => {
   });
 
   const courses = Array.from(coursesById.entries()).map(([cursoId, courseDetails]) =>
-    summarizeCourseAttendance(courseDetails, {
-      id: cursoId,
-      nombre: courseDetails[0]?.cursoNombre,
-      seccion: courseDetails[0]?.seccion,
-    })
+    summarizeCourseAttendance(
+      courseDetails,
+      {
+        id: cursoId,
+        nombre: courseDetails[0]?.cursoNombre,
+        seccion: courseDetails[0]?.seccion,
+        ...metadataByCourseId.get(String(cursoId)),
+      },
+      dateRange,
+      assignedByCourseId.get(String(cursoId)) || []
+    )
   );
+  const reportStudentIds = new Set();
+
+  courses.forEach((course) => {
+    course.students.forEach((student) => {
+      const studentKey = getStudentKey(student);
+
+      if (studentKey) {
+        reportStudentIds.add(studentKey);
+      }
+    });
+  });
+
   const totalAsistencias = courses.reduce((total, course) => total + course.totalAsistencias, 0);
   const totalInasistencias = courses.reduce(
     (total, course) => total + course.totalInasistencias,
     0
   );
+  const porcentajeAsistencia =
+    courses.length === 0
+      ? 0
+      : Math.round(
+          courses.reduce((total, course) => total + course.porcentajeAsistencia, 0) /
+            courses.length
+        );
+  const porcentajeInasistencia =
+    courses.length === 0
+      ? 0
+      : Math.round(
+          courses.reduce((total, course) => total + course.porcentajeInasistencia, 0) /
+            courses.length
+        );
 
   return {
     totalCursosUnicos: courses.length,
-    totalEstudiantesUnicos: studentIds.size,
+    totalEstudiantesUnicos: reportStudentIds.size || studentIds.size,
     totalAsistencias,
     totalInasistencias,
+    porcentaje: porcentajeAsistencia,
+    porcentajeAsistencia,
+    porcentajeInasistencia,
     courses,
   };
 }; 

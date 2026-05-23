@@ -38,7 +38,12 @@ const CatedraticoView = () => {
       case "cursos":
         return <CoursesSection />;
       case "reporteria":
-        return <ReporteriaSection reporteria={dashboard.reporteria} />;
+        return (
+          <ReporteriaSection
+            reporteria={dashboard.reporteria}
+            estudiantes={dashboard.estudiantes}
+          />
+        );
       case "estudiantes":
       default:
         return (
@@ -93,7 +98,7 @@ const CatedraticoView = () => {
               <span style={{ ...styles.cardValue, color: card.accent }}>{card.value}</span>
               <h2 style={styles.cardTitle}>{card.title}</h2>
               <p style={styles.cardDescription}>{card.description}</p>
-              <span style={styles.cardAction}>{card.actionLabel || "Ver detalle"}</span>
+              <span style={styles.cardAction}>{card.actionLabel || "Ver Detalles"}</span>
             </button>
           ))}
         </div>

@@ -22,6 +22,106 @@ const getStudentUniqueId = (student) =>
 const getCourseId = (course) =>
   typeof course === "string" ? course : course?.id || course?.courseId || course?.cursoId;
 
+const getCourseAssignmentStatus = (assignment) => {
+  if (!assignment || typeof assignment === "string") {
+    return true;
+  }
+
+  if (assignment.activoEnCurso === false) {
+    return false;
+  }
+
+  if (assignment.estadoCurso) {
+    return normalizeSearchText(assignment.estadoCurso) !== "inactivo";
+  }
+
+  return true;
+};
+
+const getCourseAssignmentStatusLabel = (assignment) =>
+  getCourseAssignmentStatus(assignment) ? "Activo" : "Inactivo";
+
+const buildCourseAssignmentStatusStyle = (assignment) =>
+  buildStatusPillStyle(getCourseAssignmentStatusLabel(assignment));
+
+const normalizeCourseAssignmentRecord = (assignment) => {
+  const courseId = getCourseId(assignment);
+
+  if (!courseId) {
+    return null;
+  }
+
+  const isActive = getCourseAssignmentStatus(assignment);
+
+  if (typeof assignment === "string") {
+    return {
+      id: courseId,
+      activoEnCurso: true,
+      estadoCurso: "Activo",
+      _preserveString: true,
+    };
+  }
+
+  return {
+    ...assignment,
+    id: courseId,
+    activoEnCurso: isActive,
+    estadoCurso: isActive ? "Activo" : "Inactivo",
+  };
+};
+
+const normalizeCourseAssignmentRecords = (student) => {
+  const candidateAssignments =
+    student?.cursosAsignados ||
+    student?.courses ||
+    student?.assignedCourses ||
+    student?.courseIds ||
+    [];
+
+  if (!Array.isArray(candidateAssignments)) {
+    return [];
+  }
+
+  return candidateAssignments
+    .map(normalizeCourseAssignmentRecord)
+    .filter(Boolean);
+};
+
+const serializeCourseAssignment = (assignment) => {
+  const courseId = getCourseId(assignment);
+
+  if (!courseId) {
+    return null;
+  }
+
+  const isActive = getCourseAssignmentStatus(assignment);
+
+  if (assignment?._preserveString && isActive) {
+    return courseId;
+  }
+
+  const assignmentData =
+    typeof assignment === "string" ? { id: courseId } : { ...assignment };
+  delete assignmentData._preserveString;
+
+  return {
+    ...assignmentData,
+    id: courseId,
+    activoEnCurso: isActive,
+    estadoCurso: isActive ? "Activo" : "Inactivo",
+  };
+};
+
+const serializeCourseAssignments = (assignments) =>
+  (Array.isArray(assignments) ? assignments : [])
+    .map(serializeCourseAssignment)
+    .filter(Boolean);
+
+const findCourseAssignmentRecord = (assignments, courseId) =>
+  (Array.isArray(assignments) ? assignments : []).find(
+    (assignment) => String(getCourseId(assignment)) === String(courseId)
+  ) || null;
+
 const buildTeacherName = (registeredUser, firebaseUser) => {
   const fullName = `${registeredUser?.nombres || ""} ${registeredUser?.apellidos || ""}`.trim();
   if (fullName) return fullName;
@@ -97,6 +197,18 @@ const resolveAssignedCourses = (student, teacherCourses, assignedCourseIds, teac
   return [];
 };
 
+const attachCourseAssignmentStatus = (courses, assignments) =>
+  courses.map((course) => {
+    const assignment = findCourseAssignmentRecord(assignments, course.id);
+
+    return {
+      ...course,
+      _courseAssignment: assignment,
+      activoEnCurso: getCourseAssignmentStatus(assignment),
+      estadoCurso: getCourseAssignmentStatusLabel(assignment),
+    };
+  });
+
 const buildStatusPillStyle = (estado) => ({
   ...styles.statusPill,
   ...(estado === "Activo" ? styles.statusActive : styles.statusInactive),
@@ -168,7 +280,7 @@ const DetailLine = ({
 
 const buildAssignmentsMap = (students) =>
   students.reduce((accumulator, student) => {
-    accumulator[student.id] = normalizeCourseAssignments(student);
+    accumulator[student.id] = normalizeCourseAssignmentRecords(student);
     return accumulator;
   }, {});
 
@@ -332,12 +444,16 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
     null;
 
   const selectedStudentCourseKey = selectedStudent?.id || "";
-  const assignedCourseIds = useMemo(
+  const selectedCourseAssignments = useMemo(
     () =>
       selectedStudentCourseKey
         ? courseAssignments[selectedStudentCourseKey] || []
         : [],
     [courseAssignments, selectedStudentCourseKey]
+  );
+  const assignedCourseIds = useMemo(
+    () => selectedCourseAssignments.map(getCourseId).filter(Boolean),
+    [selectedCourseAssignments]
   );
 
   const assignedCourses = useMemo(() => {
@@ -345,13 +461,47 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
       return [];
     }
 
-    return resolveAssignedCourses(
-      selectedStudent,
-      teacherCourses,
-      assignedCourseIds,
-      currentTeacher
+    return attachCourseAssignmentStatus(
+      resolveAssignedCourses(
+        selectedStudent,
+        teacherCourses,
+        assignedCourseIds,
+        currentTeacher
+      ),
+      selectedCourseAssignments
     );
-  }, [assignedCourseIds, currentTeacher, selectedStudent, teacherCourses]);
+  }, [
+    assignedCourseIds,
+    currentTeacher,
+    selectedCourseAssignments,
+    selectedStudent,
+    teacherCourses,
+  ]);
+
+  const teacherCourseIds = useMemo(
+    () => new Set(teacherCourses.map((course) => String(course.id))),
+    [teacherCourses]
+  );
+  const selectedTeacherAssignments = useMemo(
+    () =>
+      selectedCourseAssignments.filter((assignment) =>
+        teacherCourseIds.has(String(getCourseId(assignment)))
+      ),
+    [selectedCourseAssignments, teacherCourseIds]
+  );
+  const hasInactiveTeacherCourse = selectedTeacherAssignments.some(
+    (assignment) => !getCourseAssignmentStatus(assignment)
+  );
+  const hasActiveTeacherCourse = selectedTeacherAssignments.some(getCourseAssignmentStatus);
+  const teacherCoursesStatusLabel =
+    selectedTeacherAssignments.length === 0
+      ? "Sin cursos"
+      : hasActiveTeacherCourse && hasInactiveTeacherCourse
+        ? "Parcial"
+        : hasActiveTeacherCourse
+          ? "Activo"
+          : "Inactivo";
+  const nextTeacherCoursesStatus = hasActiveTeacherCourse ? "Inactivo" : "Activo";
 
   const availableCourses = useMemo(
     () => {
@@ -383,7 +533,7 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
 
       setCourseAssignments((currentAssignments) => ({
         ...currentAssignments,
-        [savedStudent.id]: normalizeCourseAssignments(savedStudent),
+        [savedStudent.id]: normalizeCourseAssignmentRecords(savedStudent),
       }));
 
       onStudentUpdated?.(savedStudent);
@@ -417,7 +567,7 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
     setEditingField(null);
     await persistStudent(selectedStudent.id, {
       [field]: draftStudent?.[field] || "",
-      cursosAsignados: courseAssignments[selectedStudent.id] || [],
+      cursosAsignados: serializeCourseAssignments(courseAssignments[selectedStudent.id] || []),
     });
   };
 
@@ -426,12 +576,32 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
       return;
     }
 
-    const nextEstado = selectedStudent.estado === "Activo" ? "Inactivo" : "Activo";
-    handleStudentFieldChange("estado", nextEstado);
+    const nextIsActive = nextTeacherCoursesStatus === "Activo";
+    const nextAssignments = selectedCourseAssignments.map((assignment) => {
+      const courseId = getCourseId(assignment);
+
+      if (!teacherCourseIds.has(String(courseId))) {
+        return assignment;
+      }
+
+      const assignmentData = typeof assignment === "string" ? {} : assignment;
+
+      return {
+        ...assignmentData,
+        id: courseId,
+        activoEnCurso: nextIsActive,
+        estadoCurso: nextTeacherCoursesStatus,
+        _preserveString: false,
+      };
+    });
+
+    setCourseAssignments((currentAssignmentsMap) => ({
+      ...currentAssignmentsMap,
+      [selectedStudent.id]: nextAssignments,
+    }));
 
     await persistStudent(selectedStudent.id, {
-      estado: nextEstado,
-      cursosAsignados: assignedCourseIds,
+      cursosAsignados: serializeCourseAssignments(nextAssignments),
     });
   };
 
@@ -442,7 +612,7 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
 
     const currentAssignments = courseAssignments[selectedStudent.id] || [];
 
-    if (currentAssignments.includes(selectedCourseToAssign)) {
+    if (findCourseAssignmentRecord(currentAssignments, selectedCourseToAssign)) {
       return;
     }
 
@@ -453,7 +623,9 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
       [selectedStudent.id]: nextAssignments,
     }));
 
-    await persistStudent(selectedStudent.id, { cursosAsignados: nextAssignments });
+    await persistStudent(selectedStudent.id, {
+      cursosAsignados: serializeCourseAssignments(nextAssignments),
+    });
     setSelectedCourseToAssign("");
   };
 
@@ -464,7 +636,7 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
 
     const currentAssignments = courseAssignments[selectedStudent.id] || [];
     const nextAssignments = currentAssignments.filter(
-      (assignedId) => assignedId !== courseId
+      (assignedCourse) => String(getCourseId(assignedCourse)) !== String(courseId)
     );
 
     setCourseAssignments((currentAssignmentsMap) => ({
@@ -472,7 +644,9 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
       [selectedStudent.id]: nextAssignments,
     }));
 
-    await persistStudent(selectedStudent.id, { cursosAsignados: nextAssignments });
+    await persistStudent(selectedStudent.id, {
+      cursosAsignados: serializeCourseAssignments(nextAssignments),
+    });
   };
 
   if (studentsState.length === 0) {
@@ -576,8 +750,9 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
                   onClick={handleToggleStatus}
                   style={styles.statusToggle}
                   className="responsive-button-full-mobile"
+                  disabled={saving || selectedTeacherAssignments.length === 0}
                 >
-                  Cambiar a {selectedStudent.estado === "Activo" ? "Inactivo" : "Activo"}
+                  Cambiar mis cursos a {nextTeacherCoursesStatus}
                 </button>
               </div>
 
@@ -588,8 +763,8 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
                   accent="#2563eb"
                 />
                 <StudentMetricCard
-                  label="Estado"
-                  value={selectedStudent.estado}
+                  label="Estado en mis cursos"
+                  value={teacherCoursesStatusLabel}
                   accent="#14b8a6"
                 />
                 <StudentMetricCard
@@ -628,17 +803,21 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
                       onBlur={() => handleFieldBlur("correo")}
                     />
                     <DetailLine
-                      label="Estado"
+                      label="Estado en mis cursos"
                       canEdit={false}
                       valueNode={
                         <span
                           style={{
-                            ...buildStatusPillStyle(selectedStudent.estado),
+                            ...buildStatusPillStyle(
+                              teacherCoursesStatusLabel === "Parcial"
+                                ? "Activo"
+                                : teacherCoursesStatusLabel
+                            ),
                             cursor: "pointer",
                           }}
                           onClick={handleToggleStatus}
                         >
-                          {selectedStudent.estado}
+                          {teacherCoursesStatusLabel}
                         </span>
                       }
                     />
@@ -696,6 +875,7 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
                         <th style={styles.th}>Curso</th>
                         <th style={styles.th}>Seccion</th>
                         <th style={styles.th}>Horario</th>
+                        <th style={styles.th}>Estado</th>
                         <th style={styles.th}>Accion</th>
                       </tr>
                     </thead>
@@ -705,6 +885,11 @@ const EstudiantesTable = ({ estudiantes, onStudentUpdated }) => {
                           <td style={styles.td}>{course.nombre}</td>
                           <td style={styles.td}>{course.seccion}</td>
                           <td style={styles.td}>{course.horario}</td>
+                          <td style={styles.td}>
+                            <span style={buildCourseAssignmentStatusStyle(course._courseAssignment)}>
+                              {course.estadoCurso}
+                            </span>
+                          </td>
                           <td style={styles.td}>
                             <button
                               type="button"

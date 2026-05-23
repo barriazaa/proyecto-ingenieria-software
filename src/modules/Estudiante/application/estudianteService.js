@@ -1,4 +1,6 @@
 import {
+  isStudentActiveInCourse,
+  isStudentAssignedToCourse,
   isStudentRole,
   mapAssignedCourses,
   normalizeStudent,
@@ -65,9 +67,6 @@ class EstudianteService {
     );
   }
 
-  // =====================================================================
-  // AQUÍ ESTÁ LA SOLUCIÓN AL ERROR: El puente para los requisitos del curso
-  // =====================================================================
   async getCourseRequirements(courseId) {
     return await FirebaseEstudianteRepository.getCourseRequirements(courseId);
   }
@@ -76,7 +75,13 @@ class EstudianteService {
   async processAttendanceScan(scannedData, currentUser, coordsAlumno) {
     try {
       const { i: courseId, t: scannedToken } = scannedData;
-      const hoy = new Date().toISOString().split('T')[0];
+      
+      // =====================================================================
+      // Ajuste de Zona Horaria (UTC-6 para Guatemala)
+      // =====================================================================
+      const fechaLocal = new Date();
+      fechaLocal.setHours(fechaLocal.getHours() - 6);
+      const hoy = fechaLocal.toISOString().split('T')[0];
 
       // 1. Obtener Requisitos del Curso (Sincronizado con Firebase)
       const requirements = await FirebaseEstudianteRepository.getCourseRequirements(courseId);
@@ -126,20 +131,31 @@ class EstudianteService {
 
       const student = normalizeStudent(studentProfile, currentUser.uid);
 
-      // 6. Auto-inscripción (Si el alumno escanea y no está en el curso, lo metemos)
-      if (!student.cursosAsignados.includes(courseId)) {
+      // =====================================================================
+      // 6 y 7. LÓGICA CORREGIDA: Auto-inscripción vs Validación de Inactividad
+      // =====================================================================
+      const yaEstaInscrito = student.cursosAsignados.includes(courseId);
+
+      if (yaEstaInscrito) {
+        // SI YA ESTÁ INSCRITO: Validamos que no esté inactivo en este curso
+        if (!isStudentActiveInCourse(studentProfile, courseId)) {
+          throw new Error("Tu acceso a este curso está inactivo.");
+        }
+      } else {
+        // SI NO ESTÁ INSCRITO: Omitimos la validación y lo auto-inscribimos
         await FirebaseEstudianteRepository.enrollStudentInCourse(currentUser.uid, courseId);
       }
 
-      // 7. Guardar marcaje en la nueva colección agrupada 'asistencias_detalle'
+      // 8. Guardar marcaje en la nueva colección agrupada 'asistencias_detalle'
+      // (Con fallbacks de seguridad por si algún dato viene vacío desde Firebase)
       await FirebaseEstudianteRepository.saveAttendanceReport({
         estudianteUid: student.uid,
-        estudianteNombre: student.nombre,
-        estudianteCarnet: student.carnet,
+        estudianteNombre: student.nombre || "Sin nombre",
+        estudianteCarnet: student.carnet || "N/A",
         cursoId: courseData.id,
-        cursoNombre: courseData.nombre,
+        cursoNombre: courseData.nombre || "Curso sin nombre",
         seccion: courseData.seccion || "N/A",
-        docenteUid: courseData.teacherUid || courseData.docenteId,
+        docenteUid: courseData.teacherUid || courseData.docenteId || "Sin docente",
         fechaSimple: hoy
       });
 
@@ -154,4 +170,4 @@ class EstudianteService {
   }
 }
 
-export default new EstudianteService();  
+export default new EstudianteService();

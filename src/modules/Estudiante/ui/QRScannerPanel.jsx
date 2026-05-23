@@ -93,11 +93,11 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
     setZoomSettings(settings);
   };
 
+  // MODIFICADO: Ya no inyecta errores directo a la pantalla, los envía al catch principal
   const requestLocation = () => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        safeSetStatus({ msg: "Tu navegador no soporta GPS.", type: "error" });
-        return reject(new Error("No soporta GPS"));
+        return reject(new Error("Tu navegador no soporta GPS."));
       }
 
       navigator.geolocation.getCurrentPosition(
@@ -108,8 +108,9 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
         },
         (geoErr) => {
           let errorMsg = "Se requiere GPS para marcar asistencia.";
-          if (geoErr.code === 1) errorMsg = "Debes permitir el GPS.";
-          safeSetStatus({ msg: errorMsg, type: "error" });
+          if (geoErr.code === 1) errorMsg = "Debes permitir el GPS para continuar.";
+          if (geoErr.code === 2) errorMsg = "No se pudo obtener la ubicación.";
+          if (geoErr.code === 3) errorMsg = "Tiempo de espera del GPS agotado.";
           reject(new Error(errorMsg));
         },
         { enableHighAccuracy: true, timeout: 10000 }
@@ -203,7 +204,24 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
       setLoading(true);
       isPausedRef.current = true;
 
-      const data = JSON.parse(decodedText);
+      // 1. Pausar la cámara de forma segura (congela la imagen)
+      try {
+        if (qrInstanceRef.current?.isScanning) {
+          qrInstanceRef.current.pause(true);
+        }
+      } catch (e) {
+        console.warn("Ignorando error al pausar la cámara:", e);
+      }
+
+      // Validar que el QR sea de nuestro sistema
+      let data;
+      try {
+        data = JSON.parse(decodedText);
+        if (!data.i) throw new Error();
+      } catch (e) {
+        throw new Error("El código QR no es válido para este sistema.");
+      }
+
       const courseId = data.i;
 
       safeSetStatus({ msg: "Validando requisitos...", type: "info" });
@@ -214,12 +232,16 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
       let currentCoords = userCoords;
 
       if (requiereGPS && !currentCoords) {
-        safeSetStatus({ msg: "Activando GPS obligatorio...", type: "info" });
+        safeSetStatus({ msg: "Obteniendo ubicación GPS...", type: "info" });
+        // Si esto falla, el error saltará directo al bloque catch de abajo
         currentCoords = await requestLocation();
       }
 
-      await stopScanner();
+      // 2. Procesamos en base de datos
       await EstudianteService.processAttendanceScan(data, auth.currentUser, currentCoords);
+
+      // 3. SI FUE EXITOSO: Destruimos la cámara
+      await stopScanner();
 
       if (!isMountedRef.current) return;
 
@@ -227,26 +249,32 @@ const QRScannerPanel = ({ onSuccessComplete }) => {
       scanSuccessRef.current = true;
       setScanSuccess(true);
       setStatus({ msg: "Tu asistencia fue marcada exitosamente.", type: "success" });
+      
     } catch (err) {
       if (!isMountedRef.current) return;
 
+      // 4. SI HAY ERROR (CUALQUIER ERROR): 
+      // Mostramos el mensaje (¡Ya no volvemos a pausar aquí para evitar cuelgues!)
       setLoading(false);
       setStatus({ msg: err.message || "Error al procesar. Espera 10 segundos.", type: "error" });
 
-      if (qrInstanceRef.current?.isScanning) {
-        qrInstanceRef.current.pause(true);
-      }
-
+      // Iniciamos el contador exacto de 10 segundos
       setTimeout(() => {
         if (!isMountedRef.current || scanSuccessRef.current) return;
 
         isPausedRef.current = false;
-        setStatus({ msg: "", type: "" });
+        setStatus({ msg: "", type: "" }); // Limpia la pantalla del error de GPS o Firebase
 
-        if (qrInstanceRef.current && !qrInstanceRef.current.isScanning) {
+        // REACTIVAMOS LA CÁMARA (Blindado contra fallos de la librería)
+        if (!qrInstanceRef.current || !qrInstanceRef.current.isScanning) {
           startCamera();
-        } else if (qrInstanceRef.current) {
-          qrInstanceRef.current.resume();
+        } else {
+          try {
+            qrInstanceRef.current.resume(); // Descongela la imagen
+          } catch (resumeError) {
+            console.warn("Fallo al reanudar, reiniciando cámara desde cero...");
+            startCamera(); // Si falla al reanudar, forzamos reinicio seguro
+          }
         }
       }, 10000);
     }

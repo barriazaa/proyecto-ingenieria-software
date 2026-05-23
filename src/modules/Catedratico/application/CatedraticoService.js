@@ -4,6 +4,7 @@ import {
   mapStudentsForView,
 } from "../domain/CatedraticoRules";
 import {
+  buildStudentAttendanceReport,
   normalizeAttendanceDetail,
   summarizeCourseAttendance,
   summarizeTeacherAttendanceDashboard,
@@ -50,8 +51,12 @@ class CatedraticoService {
     return summarizeCourseAttendance(attendanceDetails, course, dateRange, assignedStudents);
   }
 
-  getAttendanceDashboardReport(attendanceDetails) {
-    return summarizeTeacherAttendanceDashboard(attendanceDetails);
+  getStudentAttendanceReport(courseReport, student, course, dateRange) {
+    return buildStudentAttendanceReport(courseReport, student, course, dateRange);
+  }
+
+  getAttendanceDashboardReport(attendanceDetails, options = {}) {
+    return summarizeTeacherAttendanceDashboard(attendanceDetails, options);
   }
 }
 
